@@ -3,9 +3,9 @@ using PharmacyAPI.Models;
 
 namespace PharmacyAPI.Data
 {
-    public class AppDbContext : DbContext
+    public class PharmaTrackDbContext : DbContext
     {
-        public AppDbContext(DbContextOptions<AppDbContext> options)
+        public PharmaTrackDbContext(DbContextOptions<PharmaTrackDbContext> options)
             : base(options)
         {
         }
