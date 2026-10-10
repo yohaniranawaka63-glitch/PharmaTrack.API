@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace PharmaTrack.API.Models
@@ -11,12 +12,18 @@ namespace PharmaTrack.API.Models
 
         public int SaleId { get; set; }
 
-        public int BatchId { get; set; }
+        // Medicine Batch
+        public int? BatchId { get; set; }
+
+        // Other Item
+        public int? OtherItemId { get; set; }
 
         public int Quantity { get; set; }
 
         public decimal UnitPrice { get; set; }
 
         public decimal SubTotal { get; set; }
+
+        public decimal? PurchasePriceAtSale { get; set; }
     }
 }

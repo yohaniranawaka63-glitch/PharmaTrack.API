@@ -38,6 +38,9 @@ namespace PharmaTrack.API.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
@@ -52,7 +55,7 @@ namespace PharmaTrack.API.Migrations
 
                     b.HasKey("MedicineId");
 
-                    b.ToTable("Medicine", (string)null);
+                    b.ToTable("Medicine");
                 });
 
             modelBuilder.Entity("PharmaTrack.API.Models.MedicineBatch", b =>
@@ -70,6 +73,9 @@ namespace PharmaTrack.API.Migrations
                     b.Property<DateTime>("ExpiryDate")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTime>("ManufacturingDate")
                         .HasColumnType("timestamp with time zone");
 
@@ -85,12 +91,78 @@ namespace PharmaTrack.API.Migrations
                     b.Property<decimal>("SellingPrice")
                         .HasColumnType("numeric");
 
-                    b.Property<int>("SupplierId")
+                    b.Property<int?>("SupplierId")
                         .HasColumnType("integer");
 
                     b.HasKey("BatchId");
 
-                    b.ToTable("MedicineBatch", (string)null);
+                    b.HasIndex("SupplierId");
+
+                    b.ToTable("MedicineBatch");
+                });
+
+            modelBuilder.Entity("PharmaTrack.API.Models.OtherItem", b =>
+                {
+                    b.Property<int>("OtherItemId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("OtherItemId"));
+
+                    b.Property<string>("Category")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ItemName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int?>("ProductCategoryId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("PurchasePrice")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ReorderLevel")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("SellingPrice")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<bool>("Status")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Unit")
+                        .HasColumnType("text");
+
+                    b.HasKey("OtherItemId");
+
+                    b.HasIndex("ProductCategoryId");
+
+                    b.ToTable("OtherItem");
+                });
+
+            modelBuilder.Entity("PharmaTrack.API.Models.ProductCategory", b =>
+                {
+                    b.Property<int>("CategoryId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("CategoryId"));
+
+                    b.Property<string>("CategoryName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<bool>("Status")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("CategoryId");
+
+                    b.ToTable("ProductCategory");
                 });
 
             modelBuilder.Entity("PharmaTrack.API.Models.Role", b =>
@@ -107,7 +179,7 @@ namespace PharmaTrack.API.Migrations
 
                     b.HasKey("RoleId");
 
-                    b.ToTable("Role", (string)null);
+                    b.ToTable("Role");
                 });
 
             modelBuilder.Entity("PharmaTrack.API.Models.Sale", b =>
@@ -133,7 +205,7 @@ namespace PharmaTrack.API.Migrations
 
                     b.HasKey("SaleId");
 
-                    b.ToTable("Sale", (string)null);
+                    b.ToTable("Sale");
                 });
 
             modelBuilder.Entity("PharmaTrack.API.Models.SaleItem", b =>
@@ -144,8 +216,14 @@ namespace PharmaTrack.API.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("SaleItemId"));
 
-                    b.Property<int>("BatchId")
+                    b.Property<int?>("BatchId")
                         .HasColumnType("integer");
+
+                    b.Property<int?>("OtherItemId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("PurchasePriceAtSale")
+                        .HasColumnType("numeric");
 
                     b.Property<int>("Quantity")
                         .HasColumnType("integer");
@@ -161,7 +239,7 @@ namespace PharmaTrack.API.Migrations
 
                     b.HasKey("SaleItemId");
 
-                    b.ToTable("SaleItem", (string)null);
+                    b.ToTable("SaleItem");
                 });
 
             modelBuilder.Entity("PharmaTrack.API.Models.StockTransaction", b =>
@@ -194,7 +272,7 @@ namespace PharmaTrack.API.Migrations
 
                     b.HasKey("TransactionId");
 
-                    b.ToTable("StockTransaction", (string)null);
+                    b.ToTable("StockTransaction");
                 });
 
             modelBuilder.Entity("PharmaTrack.API.Models.Supplier", b =>
@@ -223,7 +301,45 @@ namespace PharmaTrack.API.Migrations
 
                     b.HasKey("SupplierId");
 
-                    b.ToTable("Supplier", (string)null);
+                    b.ToTable("Supplier");
+                });
+
+            modelBuilder.Entity("PharmaTrack.API.Models.SupportRequest", b =>
+                {
+                    b.Property<int>("RequestId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("RequestId"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("RequestType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime?>("ResolvedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("RequestId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("SupportRequests");
                 });
 
             modelBuilder.Entity("PharmaTrack.API.Models.User", b =>
@@ -254,7 +370,40 @@ namespace PharmaTrack.API.Migrations
 
                     b.HasKey("UserId");
 
-                    b.ToTable("User", (string)null);
+                    b.ToTable("User");
+                });
+
+            modelBuilder.Entity("PharmaTrack.API.Models.MedicineBatch", b =>
+                {
+                    b.HasOne("PharmaTrack.API.Models.Supplier", null)
+                        .WithMany()
+                        .HasForeignKey("SupplierId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("PharmaTrack.API.Models.OtherItem", b =>
+                {
+                    b.HasOne("PharmaTrack.API.Models.ProductCategory", "ProductCategory")
+                        .WithMany("OtherItems")
+                        .HasForeignKey("ProductCategoryId");
+
+                    b.Navigation("ProductCategory");
+                });
+
+            modelBuilder.Entity("PharmaTrack.API.Models.SupportRequest", b =>
+                {
+                    b.HasOne("PharmaTrack.API.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("PharmaTrack.API.Models.ProductCategory", b =>
+                {
+                    b.Navigation("OtherItems");
                 });
 #pragma warning restore 612, 618
         }

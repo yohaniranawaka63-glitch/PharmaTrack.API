@@ -11,7 +11,8 @@ namespace PharmaTrack.API.Models
 
         public int MedicineId { get; set; }
 
-        public int SupplierId { get; set; }
+        // Supplier can be deleted without deleting the batch
+        public int? SupplierId { get; set; }
 
         public string BatchName { get; set; } = string.Empty;
 
@@ -24,5 +25,8 @@ namespace PharmaTrack.API.Models
         public decimal SellingPrice { get; set; }
 
         public int Quantity { get; set; }
+
+        // Active / Inactive batch
+        public bool IsActive { get; set; } = true;
     }
 }

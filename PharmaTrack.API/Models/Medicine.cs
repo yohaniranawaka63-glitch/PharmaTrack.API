@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace PharmaTrack.API.Models
@@ -19,5 +20,7 @@ namespace PharmaTrack.API.Models
         public string Unit { get; set; } = string.Empty;
 
         public string Strength { get; set; } = string.Empty;
+
+        public bool IsActive { get; set; } = true;
     }
 }
