@@ -6,3 +6,11 @@ obj/
 *.suo
 appsettings.Development.json
 appsettings.json
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+**/Migrations_Backup/
+**/PharmaTrack.MigrationsTempBackup/
+**/PharmaTrack.SchemaTemp/
+**/appsettings.Development.json
