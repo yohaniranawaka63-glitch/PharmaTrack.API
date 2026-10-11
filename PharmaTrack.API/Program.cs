@@ -11,13 +11,17 @@ builder.Services.AddControllers()
             System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
     });
 
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:5173")
-              .AllowAnyHeader()
-              .AllowAnyMethod();
+        policy.WithOrigins(
+                "http://localhost:5173",
+                "https://pharmatrack-frontend-sooty.vercel.app"
+            )
+            .AllowAnyHeader()
+            .AllowAnyMethod();
     });
 });
 
