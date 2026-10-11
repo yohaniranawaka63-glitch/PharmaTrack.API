@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 
-const API_URL = "http://localhost:5275/api";
+const API_URL = "http://https://pharmatrack-api-b0035.containers.snapdeploy.app/api/api";
 
 function Medicine() {
   const [medicines, setMedicines] = useState([]);

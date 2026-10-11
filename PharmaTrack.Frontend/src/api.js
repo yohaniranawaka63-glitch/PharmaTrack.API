@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "http://localhost:5275/api",
+  baseURL: "https://pharmatrack-api-b0035.containers.snapdeploy.app/api",
 });
 
 export default api;

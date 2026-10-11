@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import axios from "axios";
+import api from "./api";
 import "./Login.css";
 
 function Login({ onLogin }) {
@@ -24,13 +24,13 @@ function Login({ onLogin }) {
     try {
       setLoading(true);
 
-      const response = await axios.post(
-        "http://localhost:5275/api/User/login",
-        {
-          userName: userName.trim(),
-          password: password,
-        }
-      );
+      const response = await api.post(
+  "/User/login",
+  {
+    userName: userName.trim(),
+    password: password,
+  }
+);
 
       const user = response.data;
 

@@ -7,7 +7,7 @@ function SupportRequests() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const API_URL = "http://localhost:5275/api/SupportRequest";
+  const API_URL = "http://https://pharmatrack-api-b0035.containers.snapdeploy.app/api/api/SupportRequest";
 
   useEffect(() => {
     loadRequests();

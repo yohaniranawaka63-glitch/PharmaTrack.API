@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 
-const API_URL = "http://localhost:5275/api";
+const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
 
 // Current logged-in Admin user.
 // Later we can replace this with the actual logged-in user's ID.
@@ -39,9 +39,9 @@ function NewSale({ onBack, onSaleCreated }) {
         otherItemResponse,
         batchResponse,
       ] = await Promise.all([
-        axios.get(`${API_URL}/Medicine`),
-        axios.get(`${API_URL}/OtherItem`),
-        axios.get(`${API_URL}/MedicineBatch`),
+        api.get(`${API}/Medicine`),
+        api.get(`${API}/OtherItem`),
+        api.get(`${API}/MedicineBatch`),
       ]);
 
       setMedicines(medicineResponse.data);
@@ -310,7 +310,7 @@ function NewSale({ onBack, onSaleCreated }) {
       console.log("Creating sale:", saleData);
 
       const response = await axios.post(
-        `${API_URL}/Sale`,
+        `${API}/Sale`,
         saleData
       );
 

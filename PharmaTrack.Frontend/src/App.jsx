@@ -17,7 +17,7 @@ import Help from "./Help";
 import SupportRequests from "./SupportRequests";
 import Login from "./Login";
 
-const API = "http://localhost:5275/api";
+const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
 
 function App() {
   const [loggedInUser, setLoggedInUser] = useState(null);

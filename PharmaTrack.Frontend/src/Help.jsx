@@ -10,7 +10,7 @@ function Help() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const API_URL = "http://localhost:5275/api/SupportRequest";
+  const API_URL = "http://https://pharmatrack-api-b0035.containers.snapdeploy.app/api/api/SupportRequest";
 
   const USER_ID = 9;
 

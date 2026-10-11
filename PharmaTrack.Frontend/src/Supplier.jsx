@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import "./Supplier.css";
 
-const API = "http://localhost:5275/api";
+const API = "http://https://pharmatrack-api-b0035.containers.snapdeploy.app/api/api";
 
 function Supplier() {
   const [suppliers, setSuppliers] = useState([]);

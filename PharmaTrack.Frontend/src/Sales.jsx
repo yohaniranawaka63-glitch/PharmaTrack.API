@@ -13,7 +13,7 @@ function Sales({ onNewSale, onViewBill }) {
   const loadSales = async () => {
     try {
       const response = await axios.get(
-        "http://localhost:5275/api/Sale"
+        "http://https://pharmatrack-api-b0035.containers.snapdeploy.app/api/api/Sale"
       );
 
       setSales(response.data);
