@@ -1,8 +1,6 @@
 
 import { useEffect, useState } from "react";
-import axios from "axios";
-
-const API_URL = "http://https://pharmatrack-api-b0035.containers.snapdeploy.app/api/api";
+import api from "./api";
 
 const emptyForm = {
   itemName: "",
@@ -27,62 +25,71 @@ function OtherItem() {
 
   const [formData, setFormData] = useState({ ...emptyForm });
 
-  // Logout
+  // LOGOUT
   const handleLogout = () => {
+    localStorage.removeItem("pharmaTrackUser");
     sessionStorage.removeItem("pharmaTrackUser");
     window.location.reload();
   };
 
-  // Load items and categories
+  // LOAD ITEMS AND CATEGORIES
   useEffect(() => {
     loadItems();
     loadCategories();
   }, []);
 
+  // LOAD OTHER ITEMS
   const loadItems = async () => {
     setLoading(true);
 
     try {
-      const response = await axios.get(
-        `${API_URL}/OtherItem`
-      );
+      const response = await api.get("/OtherItem");
 
       setItems(
-        Array.isArray(response.data)
-          ? response.data
-          : []
+        Array.isArray(response.data) ? response.data : []
       );
     } catch (error) {
-      console.error("Failed to load other items:", error);
-      alert("Failed to load other items. Please check the API.");
+      console.error("LOAD OTHER ITEMS ERROR:", error);
+      console.error("STATUS:", error.response?.status);
+      console.error("DATA:", error.response?.data);
+
+      alert(
+        error.response?.data?.message ||
+          error.response?.data?.title ||
+          "Failed to load other items. Please check the API."
+      );
     } finally {
       setLoading(false);
     }
   };
 
+  // LOAD PRODUCT CATEGORIES
   const loadCategories = async () => {
     try {
-      const response = await axios.get(
-        `${API_URL}/ProductCategory`
-      );
+      const response = await api.get("/ProductCategory");
 
       setCategories(
-        Array.isArray(response.data)
-          ? response.data
-          : []
+        Array.isArray(response.data) ? response.data : []
       );
     } catch (error) {
-      console.error("Failed to load categories:", error);
-      alert("Failed to load product categories.");
+      console.error("LOAD CATEGORIES ERROR:", error);
+      console.error("STATUS:", error.response?.status);
+      console.error("DATA:", error.response?.data);
+
+      alert(
+        error.response?.data?.message ||
+          error.response?.data?.title ||
+          "Failed to load product categories."
+      );
     }
   };
 
-  // Only active categories in the dropdown.
-  // If duplicate category names exist, display each name with its ID.
+  // ACTIVE CATEGORIES
   const activeCategories = categories.filter(
     (category) => category.status === true
   );
 
+  // GET CATEGORY NAME
   const getCategoryName = (item) => {
     const categoryId = item.productCategoryId;
 
@@ -100,12 +107,20 @@ function OtherItem() {
     );
   };
 
+  // SEARCH
+  const searchText = search.toLowerCase().trim();
+
   const filteredItems = items.filter((item) =>
-    (item.itemName || "")
-      .toLowerCase()
-      .includes(search.toLowerCase())
+    [
+      item.itemName,
+      getCategoryName(item),
+      item.unit,
+    ].some((value) =>
+      String(value || "").toLowerCase().includes(searchText)
+    )
   );
 
+  // INPUT CHANGE
   const handleInputChange = (event) => {
     const { name, value } = event.target;
 
@@ -130,26 +145,37 @@ function OtherItem() {
     });
   };
 
+  // RESET FORM
   const resetForm = () => {
     setFormData({ ...emptyForm });
     setEditingId(null);
     setShowForm(false);
   };
 
+  // ADD ITEM
   const handleAddItem = () => {
     setEditingId(null);
     setFormData({ ...emptyForm });
     setShowForm(true);
   };
 
+  // EDIT ITEM
   const handleEditItem = (item) => {
-    setEditingId(item.otherItemId);
+    const id = Number(item.otherItemId);
+
+    if (!Number.isInteger(id) || id <= 0) {
+      alert("Other item ID not found.");
+      return;
+    }
+
+    const categoryName = getCategoryName(item);
+
+    setEditingId(id);
 
     setFormData({
       itemName: item.itemName || "",
-      category: getCategoryName(item) === "No Category"
-        ? ""
-        : getCategoryName(item),
+      category:
+        categoryName === "No Category" ? "" : categoryName,
       productCategoryId:
         item.productCategoryId != null
           ? String(item.productCategoryId)
@@ -165,37 +191,71 @@ function OtherItem() {
     setShowForm(true);
   };
 
+  // DELETE ITEM
   const handleDeleteItem = async (id) => {
+    const itemId = Number(id);
+
+    if (!Number.isInteger(itemId) || itemId <= 0) {
+      alert("Other item ID not found.");
+      return;
+    }
+
+    const item = items.find(
+      (currentItem) =>
+        Number(currentItem.otherItemId) === itemId
+    );
+
     const confirmed = window.confirm(
-      "Are you sure you want to delete this item?"
+      `Are you sure you want to delete "${
+        item?.itemName || "this item"
+      }"?`
     );
 
     if (!confirmed) return;
 
     try {
-      await axios.delete(`${API_URL}/OtherItem/${id}`);
+      await api.delete(`/OtherItem/${itemId}`);
+
       alert("Other item deleted successfully.");
+
+      setItems((previous) =>
+        previous.filter(
+          (currentItem) =>
+            Number(currentItem.otherItemId) !== itemId
+        )
+      );
+
       await loadItems();
     } catch (error) {
-      console.error("DELETE ERROR:", error);
+      console.error("DELETE OTHER ITEM ERROR:", error);
+      console.error("STATUS:", error.response?.status);
+      console.error("DATA:", error.response?.data);
+
+      const errorData = error.response?.data;
 
       const message =
-        error.response?.data?.message ||
-        (typeof error.response?.data === "string"
-          ? error.response.data
-          : null) ||
-        "Delete failed. This item may be used by another record.";
+        typeof errorData === "string"
+          ? errorData
+          : errorData?.message ||
+            errorData?.title ||
+            (error.response?.status === 409
+              ? "This item is being used by another record and cannot be deleted."
+              : error.message) ||
+            "Delete failed. Please try again.";
 
-      alert(message);
+      alert(`Unable to delete item.\n\n${message}`);
     }
   };
 
+  // ADD / UPDATE ITEM
   const handleSaveItem = async (event) => {
     event.preventDefault();
 
     if (saving) return;
 
-    if (!formData.itemName.trim()) {
+    const itemName = formData.itemName.trim();
+
+    if (!itemName) {
       alert("Please enter an item name.");
       return;
     }
@@ -205,12 +265,21 @@ function OtherItem() {
       return;
     }
 
+    if (!formData.unit) {
+      alert("Please select a Unit.");
+      return;
+    }
+
     const purchasePrice = Number(formData.purchasePrice);
     const sellingPrice = Number(formData.sellingPrice);
     const quantity = Number(formData.quantity);
     const reorderLevel = Number(formData.reorderLevel);
 
     if (
+      formData.purchasePrice === "" ||
+      formData.sellingPrice === "" ||
+      formData.quantity === "" ||
+      formData.reorderLevel === "" ||
       !Number.isFinite(purchasePrice) ||
       !Number.isFinite(sellingPrice) ||
       !Number.isFinite(quantity) ||
@@ -221,6 +290,14 @@ function OtherItem() {
       reorderLevel < 0
     ) {
       alert("Please enter valid non-negative numbers.");
+      return;
+    }
+
+    if (
+      !Number.isInteger(quantity) ||
+      !Number.isInteger(reorderLevel)
+    ) {
+      alert("Quantity and Reorder Level must be whole numbers.");
       return;
     }
 
@@ -239,12 +316,14 @@ function OtherItem() {
     );
 
     if (!selectedCategory) {
-      alert("The selected category could not be found. Please select it again.");
+      alert(
+        "The selected category could not be found. Please select it again."
+      );
       return;
     }
 
     const data = {
-      itemName: formData.itemName.trim(),
+      itemName,
       category: selectedCategory.categoryName,
       productCategoryId: Number(formData.productCategoryId),
       unit: formData.unit,
@@ -259,38 +338,42 @@ function OtherItem() {
 
     try {
       if (editingId !== null) {
-        await axios.put(
-          `${API_URL}/OtherItem/${editingId}`,
-          {
-            otherItemId: editingId,
-            ...data,
-          }
-        );
+        await api.put(`/OtherItem/${editingId}`, {
+          otherItemId: Number(editingId),
+          ...data,
+        });
 
         alert("Other item updated successfully.");
       } else {
-        await axios.post(`${API_URL}/OtherItem`, data);
+        await api.post("/OtherItem", data);
+
         alert("Other item added successfully.");
       }
 
       resetForm();
       await loadItems();
     } catch (error) {
-      console.error("SAVE ERROR:", error);
+      console.error("SAVE OTHER ITEM ERROR:", error);
+      console.error("STATUS:", error.response?.status);
+      console.error("DATA:", error.response?.data);
+
+      const errorData = error.response?.data;
 
       const message =
-        error.response?.data?.message ||
-        (typeof error.response?.data === "string"
-          ? error.response.data
-          : null) ||
-        "Failed to save other item. Please check the API response.";
+        typeof errorData === "string"
+          ? errorData
+          : errorData?.message ||
+            errorData?.title ||
+            error.message ||
+            "Failed to save other item. Please check the API response.";
 
-      alert(message);
+      alert(`Unable to save item.\n\n${message}`);
     } finally {
       setSaving(false);
     }
   };
 
+  // STOCK STATUS
   const getStockStatus = (item) => {
     const quantity = Number(item.quantity ?? 0);
     const reorderLevel = Number(item.reorderLevel ?? 0);
@@ -320,7 +403,7 @@ function OtherItem() {
 
   return (
     <div className="medicine-page">
-      {/* Header */}
+      {/* HEADER */}
       <div className="medicine-header">
         <div>
           <h1>Other Item Management</h1>
@@ -362,7 +445,7 @@ function OtherItem() {
         </div>
       </div>
 
-      {/* Search and Summary */}
+      {/* SEARCH AND SUMMARY */}
       <div className="medicine-top-section">
         <div className="medicine-search">
           <span>🔍</span>
@@ -380,7 +463,7 @@ function OtherItem() {
         </div>
       </div>
 
-      {/* Add/Edit Form */}
+      {/* ADD / EDIT FORM */}
       {showForm && (
         <div className="medicine-form-card">
           <div className="medicine-form-header">
@@ -401,6 +484,7 @@ function OtherItem() {
               type="button"
               className="close-form-btn"
               onClick={resetForm}
+              disabled={saving}
             >
               ×
             </button>
@@ -408,7 +492,7 @@ function OtherItem() {
 
           <form onSubmit={handleSaveItem}>
             <div className="medicine-form-grid">
-              {/* Item Name */}
+              {/* ITEM NAME */}
               <div className="form-group">
                 <label>Item Name</label>
                 <input
@@ -417,11 +501,12 @@ function OtherItem() {
                   placeholder="e.g. Baby Diaper"
                   value={formData.itemName}
                   onChange={handleInputChange}
+                  autoComplete="off"
                   required
                 />
               </div>
 
-              {/* Product Category */}
+              {/* PRODUCT CATEGORY */}
               <div className="form-group">
                 <label>Product Category</label>
                 <select
@@ -457,7 +542,7 @@ function OtherItem() {
                 </select>
               </div>
 
-              {/* Unit */}
+              {/* UNIT */}
               <div className="form-group">
                 <label>Unit</label>
                 <select
@@ -479,7 +564,7 @@ function OtherItem() {
                 </select>
               </div>
 
-              {/* Purchase Price */}
+              {/* PURCHASE PRICE */}
               <div className="form-group">
                 <label>Purchase Price (Rs.)</label>
                 <input
@@ -494,7 +579,7 @@ function OtherItem() {
                 />
               </div>
 
-              {/* Selling Price */}
+              {/* SELLING PRICE */}
               <div className="form-group">
                 <label>Selling Price (Rs.)</label>
                 <input
@@ -509,7 +594,7 @@ function OtherItem() {
                 />
               </div>
 
-              {/* Quantity */}
+              {/* QUANTITY */}
               <div className="form-group">
                 <label>Quantity</label>
                 <input
@@ -524,7 +609,7 @@ function OtherItem() {
                 />
               </div>
 
-              {/* Reorder Level */}
+              {/* REORDER LEVEL */}
               <div className="form-group">
                 <label>Reorder Level</label>
                 <input
@@ -539,7 +624,7 @@ function OtherItem() {
                 />
               </div>
 
-              {/* Status */}
+              {/* STATUS */}
               <div className="form-group">
                 <label>Status</label>
                 <select
@@ -558,7 +643,7 @@ function OtherItem() {
               </div>
             </div>
 
-            {/* Form Buttons */}
+            {/* FORM BUTTONS */}
             <div className="medicine-form-actions">
               <button
                 type="button"
@@ -585,7 +670,7 @@ function OtherItem() {
         </div>
       )}
 
-      {/* Items Table */}
+      {/* ITEMS TABLE */}
       <div className="medicine-table-container">
         <div className="table-title">
           <div>
@@ -659,6 +744,7 @@ function OtherItem() {
 
                     <td>
                       {getStockStatus(item)}
+
                       {!item.status && (
                         <div style={{ marginTop: "4px" }}>
                           <span className="status-badge">
@@ -698,7 +784,11 @@ function OtherItem() {
               <div className="no-medicines">
                 <div>📦</div>
                 <h3>No other items found</h3>
-                <p>Try searching for another item.</p>
+                <p>
+                  {search
+                    ? "Try searching for another item."
+                    : "Add an item to get started."}
+                </p>
               </div>
             )}
           </>

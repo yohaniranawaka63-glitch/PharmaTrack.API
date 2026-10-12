@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
-import axios from "axios";
 
-const API_URL = "http://https://pharmatrack-api-b0035.containers.snapdeploy.app/api/api";
+import { useEffect, useState } from "react";
+import api from "./api";
 
 function Medicine() {
   const [medicines, setMedicines] = useState([]);
@@ -29,7 +28,7 @@ function Medicine() {
 
   const loadMedicines = async () => {
     try {
-      const response = await axios.get(`${API_URL}/Medicine`);
+      const response = await api.get("/Medicine");
 
       setMedicines(
         Array.isArray(response.data) ? response.data : []
@@ -170,15 +169,15 @@ function Medicine() {
       };
 
       if (editingMedicine) {
-        await axios.put(
-          `${API_URL}/Medicine/${editingMedicine.medicineId}`,
+        await api.put(
+          `/Medicine/${editingMedicine.medicineId}`,
           medicineData
         );
 
         alert("Medicine updated successfully.");
       } else {
-        const response = await axios.post(
-          `${API_URL}/Medicine`,
+        const response = await api.post(
+          "/Medicine",
           medicineData
         );
 
@@ -229,8 +228,6 @@ function Medicine() {
   };
 
   // DEACTIVATE MEDICINE
-  // The API performs a soft delete by setting IsActive = false.
-  // Historical stock and sales records are preserved.
   const handleDeleteMedicine = async (medicineId) => {
     if (deactivatingId !== null) return;
 
@@ -245,9 +242,7 @@ function Medicine() {
     try {
       setDeactivatingId(medicineId);
 
-      await axios.delete(
-        `${API_URL}/Medicine/${medicineId}`
-      );
+      await api.delete(`/Medicine/${medicineId}`);
 
       await loadMedicines();
 
@@ -273,9 +268,7 @@ function Medicine() {
 
     return (
       medicine.name?.toLowerCase().includes(searchText) ||
-      medicine.genericName
-        ?.toLowerCase()
-        .includes(searchText) ||
+      medicine.genericName?.toLowerCase().includes(searchText) ||
       medicine.category?.toLowerCase().includes(searchText) ||
       medicine.strength?.toLowerCase().includes(searchText)
     );
@@ -508,7 +501,6 @@ function Medicine() {
             className="medicine-modal"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* MODAL HEADER */}
             <div className="medicine-modal-header">
               <div className="medicine-modal-title">
                 <div className="medicine-modal-icon">
@@ -540,7 +532,6 @@ function Medicine() {
               </button>
             </div>
 
-            {/* FORM */}
             <form onSubmit={handleSubmit}>
               <div className="medicine-modal-body">
                 <div className="medicine-form-section-title">
@@ -549,7 +540,6 @@ function Medicine() {
                 </div>
 
                 <div className="medicine-form-grid">
-                  {/* MEDICINE NAME */}
                   <div className="medicine-field">
                     <label>
                       Medicine Name <span>*</span>
@@ -565,7 +555,6 @@ function Medicine() {
                     />
                   </div>
 
-                  {/* GENERIC NAME */}
                   <div className="medicine-field">
                     <label>
                       Generic Name <span>*</span>
@@ -581,7 +570,6 @@ function Medicine() {
                     />
                   </div>
 
-                  {/* CATEGORY */}
                   <div className="medicine-field">
                     <label>
                       Category <span>*</span>
@@ -604,7 +592,6 @@ function Medicine() {
                     </select>
                   </div>
 
-                  {/* UNIT */}
                   <div className="medicine-field">
                     <label>
                       Unit <span>*</span>
@@ -628,7 +615,6 @@ function Medicine() {
                     </select>
                   </div>
 
-                  {/* STRENGTH */}
                   <div className="medicine-field medicine-field-full">
                     <label>
                       Strength <span>*</span>
@@ -649,7 +635,6 @@ function Medicine() {
                     </small>
                   </div>
 
-                  {/* BATCH DATES FOR NEW MEDICINES */}
                   {!editingMedicine && (
                     <>
                       <div className="medicine-field">
@@ -662,9 +647,7 @@ function Medicine() {
                           name="manufacturingDate"
                           value={formData.manufacturingDate}
                           onChange={handleInputChange}
-                          max={
-                            formData.expiryDate || undefined
-                          }
+                          max={formData.expiryDate || undefined}
                           required
                         />
 
@@ -700,7 +683,6 @@ function Medicine() {
                 </div>
               </div>
 
-              {/* FOOTER */}
               <div className="medicine-modal-footer">
                 <button
                   type="button"

@@ -1,8 +1,6 @@
 
 import { useEffect, useState } from "react";
-import axios from "axios";
-
-const API_URL = "http://https://pharmatrack-api-b0035.containers.snapdeploy.app/api/api";
+import api from "./api";
 
 function Bill({ saleId, onBack }) {
   const [sale, setSale] = useState(null);
@@ -45,10 +43,9 @@ function Bill({ saleId, onBack }) {
 
       try {
         const [saleResponse, itemResponse] = await Promise.all([
-          axios.get(`${API_URL}/Sale/${saleId}`),
-          axios.get(`${API_URL}/Sale/${saleId}/Items`),
-        ]);
-
+  api.get(`/Sale/${saleId}`),
+  api.get(`/Sale/${saleId}/Items`),
+]);
         if (cancelled) return;
 
         setSale(saleResponse.data);
@@ -59,12 +56,20 @@ function Bill({ saleId, onBack }) {
         if (cancelled) return;
 
         console.error("Failed to load bill:", err);
-        setSale(null);
-        setItems([]);
-        setError(
-          err.response?.data?.message ||
-            "Unable to load this bill. Please check the backend API and try again."
-        );
+console.error("Bill API URL:", err.config?.url);
+console.error("HTTP status:", err.response?.status);
+console.error("Server response:", err.response?.data);
+
+setSale(null);
+setItems([]);
+
+setError(
+  err.response?.data?.message ||
+    err.response?.data?.title ||
+    (err.response?.status === 404
+      ? "Bill endpoint not found. Please check the backend API route."
+      : "Unable to load this bill. Please check the backend API and try again.")
+);
       } finally {
         if (!cancelled) {
           setLoading(false);

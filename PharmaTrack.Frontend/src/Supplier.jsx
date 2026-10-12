@@ -1,14 +1,15 @@
-import { useEffect, useState } from "react";
-import axios from "axios";
-import "./Supplier.css";
 
-const API = "http://https://pharmatrack-api-b0035.containers.snapdeploy.app/api/api";
+import { useEffect, useState } from "react";
+import api from "./api";
+import "./Supplier.css";
 
 function Supplier() {
   const [suppliers, setSuppliers] = useState([]);
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const [formData, setFormData] = useState({
     supplierName: "",
@@ -21,28 +22,32 @@ function Supplier() {
     loadSuppliers();
   }, []);
 
-  // ==============================
   // LOAD SUPPLIERS
-  // ==============================
   const loadSuppliers = async () => {
-    try {
-      const response = await axios.get(`${API}/Supplier`);
+    setLoading(true);
 
-      setSuppliers(Array.isArray(response.data) ? response.data : []);
+    try {
+      const response = await api.get("/Supplier");
+
+      setSuppliers(
+        Array.isArray(response.data) ? response.data : []
+      );
     } catch (error) {
       console.error("LOAD SUPPLIERS ERROR:", error);
+      console.error("STATUS:", error.response?.status);
+      console.error("DATA:", error.response?.data);
 
       alert(
         error.response?.data?.message ||
           error.response?.data?.title ||
-          "Failed to load suppliers."
+          "Failed to load suppliers. Please check the API."
       );
+    } finally {
+      setLoading(false);
     }
   };
 
-  // ==============================
   // INPUT CHANGE
-  // ==============================
   const handleChange = (e) => {
     const { name, value } = e.target;
 
@@ -52,9 +57,7 @@ function Supplier() {
     }));
   };
 
-  // ==============================
   // RESET FORM
-  // ==============================
   const resetForm = () => {
     setFormData({
       supplierName: "",
@@ -67,9 +70,7 @@ function Supplier() {
     setShowForm(false);
   };
 
-  // ==============================
-  // ADD SUPPLIER
-  // ==============================
+  // ADD SUPPLIER FORM
   const handleAdd = () => {
     setEditingId(null);
 
@@ -88,18 +89,16 @@ function Supplier() {
     });
   };
 
-  // ==============================
   // EDIT SUPPLIER
-  // ==============================
   const handleEdit = (supplier) => {
-    const id = supplier?.supplierId;
+    const id = Number(supplier.supplierId);
 
-    if (!id) {
+    if (!Number.isInteger(id) || id <= 0) {
       alert("Supplier ID not found.");
       return;
     }
 
-    setEditingId(Number(id));
+    setEditingId(id);
 
     setFormData({
       supplierName: supplier.supplierName || "",
@@ -116,9 +115,7 @@ function Supplier() {
     });
   };
 
-  // ==============================
   // ADD / UPDATE SUPPLIER
-  // ==============================
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -129,73 +126,62 @@ function Supplier() {
       return;
     }
 
+    const supplierData = {
+      supplierName,
+      contactNumber: formData.contactNumber.trim(),
+      email: formData.email.trim(),
+      address: formData.address.trim(),
+    };
+
+    setSaving(true);
+
     try {
-      // ==========================
-      // UPDATE
-      // ==========================
       if (editingId !== null) {
         const updateData = {
           supplierId: Number(editingId),
-          supplierName: supplierName,
-          contactNumber: formData.contactNumber.trim(),
-          email: formData.email.trim(),
-          address: formData.address.trim(),
+          ...supplierData,
         };
 
-        console.log("UPDATE SUPPLIER:", updateData);
-
-        await axios.put(
-          `${API}/Supplier/${Number(editingId)}`,
+        await api.put(
+          `/Supplier/${editingId}`,
           updateData
         );
 
         alert("Supplier updated successfully.");
-      }
-
-      // ==========================
-      // ADD
-      // ==========================
-      else {
-        const addData = {
-          supplierName: supplierName,
-          contactNumber: formData.contactNumber.trim(),
-          email: formData.email.trim(),
-          address: formData.address.trim(),
-        };
-
-        console.log("ADD SUPPLIER:", addData);
-
-        await axios.post(`${API}/Supplier`, addData);
+      } else {
+        await api.post("/Supplier", supplierData);
 
         alert("Supplier added successfully.");
       }
 
       resetForm();
-
       await loadSuppliers();
     } catch (error) {
       console.error("SUPPLIER SAVE ERROR:", error);
       console.error("STATUS:", error.response?.status);
       console.error("DATA:", error.response?.data);
 
-      alert(
-        error.response?.data?.message ||
-          error.response?.data?.title ||
-          error.response?.data ||
-          "Failed to save supplier."
-      );
+      const errorData = error.response?.data;
+
+      const errorMessage =
+        typeof errorData === "string"
+          ? errorData
+          : errorData?.message ||
+            errorData?.title ||
+            error.message ||
+            "Failed to save supplier.";
+
+      alert(`Unable to save supplier.\n\n${errorMessage}`);
+    } finally {
+      setSaving(false);
     }
   };
 
-  // ==============================
   // DELETE SUPPLIER
-  // ==============================
   const handleDelete = async (id) => {
     const supplierId = Number(id);
 
-    console.log("DELETE SUPPLIER ID:", supplierId);
-
-    if (!supplierId || Number.isNaN(supplierId)) {
+    if (!Number.isInteger(supplierId) || supplierId <= 0) {
       alert("Supplier ID not found.");
       return;
     }
@@ -211,56 +197,30 @@ function Supplier() {
       `Are you sure you want to delete "${supplierName}"?`
     );
 
-    if (!confirmDelete) {
-      return;
-    }
+    if (!confirmDelete) return;
 
     try {
-      console.log(
-        "DELETE URL:",
-        `${API}/Supplier/${supplierId}`
-      );
-
-      const response = await axios.delete(
-        `${API}/Supplier/${supplierId}`
-      );
-
-      console.log(
-        "DELETE SUPPLIER RESPONSE:",
-        response
-      );
+      await api.delete(`/Supplier/${supplierId}`);
 
       alert("Supplier deleted successfully.");
 
-      // Remove from UI immediately
-      setSuppliers((prev) =>
-        prev.filter(
-          (item) =>
-            Number(item.supplierId) !== supplierId
-        )
-      );
-
-      // Reload from database
       await loadSuppliers();
     } catch (error) {
       console.error("SUPPLIER DELETE ERROR:", error);
-      console.error("DELETE STATUS:", error.response?.status);
-      console.error("DELETE DATA:", error.response?.data);
+      console.error("STATUS:", error.response?.status);
+      console.error("DATA:", error.response?.data);
 
       const errorData = error.response?.data;
 
-      let errorMessage =
-        "Failed to delete supplier.";
-
-      if (typeof errorData === "string") {
-        errorMessage = errorData;
-      } else if (errorData?.message) {
-        errorMessage = errorData.message;
-      } else if (errorData?.title) {
-        errorMessage = errorData.title;
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
+      const errorMessage =
+        typeof errorData === "string"
+          ? errorData
+          : errorData?.message ||
+            errorData?.title ||
+            (error.response?.status === 409
+              ? "This supplier is being used by existing stock batches."
+              : error.message) ||
+            "Failed to delete supplier.";
 
       alert(
         `Unable to delete supplier.\n\n${errorMessage}`
@@ -268,55 +228,35 @@ function Supplier() {
     }
   };
 
-  // ==============================
   // LOGOUT
-  // ==============================
   const handleLogout = () => {
+    localStorage.removeItem("pharmaTrackUser");
     sessionStorage.removeItem("pharmaTrackUser");
     window.location.reload();
   };
 
-  // ==============================
   // SEARCH
-  // ==============================
-  const filteredSuppliers = suppliers.filter(
-    (supplier) => {
-      const searchText = search
-        .toLowerCase()
-        .trim();
+  const searchText = search.toLowerCase().trim();
 
-      return (
-        (supplier.supplierName || "")
-          .toLowerCase()
-          .includes(searchText) ||
-        (supplier.contactNumber || "")
-          .toLowerCase()
-          .includes(searchText) ||
-        (supplier.email || "")
-          .toLowerCase()
-          .includes(searchText) ||
-        (supplier.address || "")
-          .toLowerCase()
-          .includes(searchText)
-      );
-    }
+  const filteredSuppliers = suppliers.filter((supplier) =>
+    [
+      supplier.supplierName,
+      supplier.contactNumber,
+      supplier.email,
+      supplier.address,
+    ].some((value) =>
+      String(value || "").toLowerCase().includes(searchText)
+    )
   );
 
-  // ==============================
   // UI
-  // ==============================
   return (
     <div className="supplier-page">
-
-      {/* ==========================
-          HEADER
-      =========================== */}
+      {/* HEADER */}
       <div className="supplier-header">
         <div>
           <h1>Supplier Management</h1>
-          <p>
-            Manage your pharmacy suppliers
-          </p>
+          <p>Manage your pharmacy suppliers</p>
         </div>
 
         <div
@@ -352,12 +292,9 @@ function Supplier() {
         </div>
       </div>
 
-      {/* ==========================
-          FORM
-      =========================== */}
+      {/* FORM */}
       {showForm && (
         <div className="supplier-form-card">
-
           <div className="form-card-header">
             <div>
               <h2>
@@ -365,10 +302,7 @@ function Supplier() {
                   ? "Edit Supplier"
                   : "Add New Supplier"}
               </h2>
-
-              <p>
-                Enter supplier information below
-              </p>
+              <p>Enter supplier information below</p>
             </div>
 
             <button
@@ -381,15 +315,9 @@ function Supplier() {
           </div>
 
           <form onSubmit={handleSubmit}>
-
             <div className="supplier-form-grid">
-
-              {/* SUPPLIER NAME */}
               <div className="form-group">
-                <label>
-                  Supplier Name *
-                </label>
-
+                <label>Supplier Name *</label>
                 <input
                   type="text"
                   name="supplierName"
@@ -397,15 +325,12 @@ function Supplier() {
                   onChange={handleChange}
                   placeholder="Enter supplier name"
                   autoComplete="off"
+                  required
                 />
               </div>
 
-              {/* CONTACT */}
               <div className="form-group">
-                <label>
-                  Contact Number
-                </label>
-
+                <label>Contact Number</label>
                 <input
                   type="text"
                   name="contactNumber"
@@ -416,12 +341,8 @@ function Supplier() {
                 />
               </div>
 
-              {/* EMAIL */}
               <div className="form-group">
-                <label>
-                  Email
-                </label>
-
+                <label>Email</label>
                 <input
                   type="email"
                   name="email"
@@ -432,12 +353,8 @@ function Supplier() {
                 />
               </div>
 
-              {/* ADDRESS */}
               <div className="form-group">
-                <label>
-                  Address
-                </label>
-
+                <label>Address</label>
                 <input
                   type="text"
                   name="address"
@@ -447,16 +364,14 @@ function Supplier() {
                   autoComplete="off"
                 />
               </div>
-
             </div>
 
-            {/* FORM BUTTONS */}
             <div className="form-actions">
-
               <button
                 type="button"
                 className="cancel-btn"
                 onClick={resetForm}
+                disabled={saving}
               >
                 Cancel
               </button>
@@ -464,132 +379,90 @@ function Supplier() {
               <button
                 type="submit"
                 className="save-supplier-btn"
+                disabled={saving}
               >
-                {editingId !== null
-                  ? "Update Supplier"
-                  : "Save Supplier"}
+                {saving
+                  ? "Saving..."
+                  : editingId !== null
+                    ? "Update Supplier"
+                    : "Save Supplier"}
               </button>
-
             </div>
           </form>
         </div>
       )}
 
-      {/* ==========================
-          SUMMARY CARDS
-      =========================== */}
+      {/* SUMMARY CARDS */}
       <div className="supplier-summary">
-
         <div className="supplier-summary-card">
-          <div className="summary-icon">
-            🚚
-          </div>
-
+          <div className="summary-icon">🚚</div>
           <div>
-            <span>
-              Total Suppliers
-            </span>
-
-            <strong>
-              {suppliers.length}
-            </strong>
+            <span>Total Suppliers</span>
+            <strong>{suppliers.length}</strong>
           </div>
         </div>
 
         <div className="supplier-summary-card">
-          <div className="summary-icon">
-            📋
-          </div>
-
+          <div className="summary-icon">📋</div>
           <div>
-            <span>
-              Displayed Suppliers
-            </span>
-
-            <strong>
-              {filteredSuppliers.length}
-            </strong>
+            <span>Displayed Suppliers</span>
+            <strong>{filteredSuppliers.length}</strong>
           </div>
         </div>
-
       </div>
 
-      {/* ==========================
-          SEARCH
-      =========================== */}
+      {/* SEARCH */}
       <div className="supplier-toolbar">
-
         <div className="supplier-search">
           <span>🔍</span>
-
           <input
             type="text"
             placeholder="Search suppliers..."
             value={search}
-            onChange={(e) =>
-              setSearch(e.target.value)
-            }
+            onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-
       </div>
 
-      {/* ==========================
-          TABLE
-      =========================== */}
+      {/* SUPPLIER TABLE */}
       <div className="supplier-table-card">
-
         <div className="table-header">
           <div>
-            <h2>
-              Suppliers
-            </h2>
-
+            <h2>Suppliers</h2>
             <p>
               {filteredSuppliers.length} supplier
-              {filteredSuppliers.length !== 1
-                ? "s"
-                : ""}{" "}
-              found
+              {filteredSuppliers.length !== 1 ? "s" : ""} found
             </p>
           </div>
         </div>
 
-        {/* EMPTY */}
-        {filteredSuppliers.length === 0 ? (
-
+        {loading ? (
           <div className="empty-supplier">
-
-            <div className="empty-icon">
-              🚚
-            </div>
-
-            <h3>
-              No suppliers found
-            </h3>
-
+            <h3>Loading suppliers...</h3>
+          </div>
+        ) : filteredSuppliers.length === 0 ? (
+          <div className="empty-supplier">
+            <div className="empty-icon">🚚</div>
+            <h3>No suppliers found</h3>
             <p>
-              Add your first supplier
-              to get started.
+              {search
+                ? "Try a different search term."
+                : "Add your first supplier to get started."}
             </p>
 
-            <button
-              type="button"
-              className="empty-add-btn"
-              onClick={handleAdd}
-            >
-              + Add Supplier
-            </button>
-
+            {!search && (
+              <button
+                type="button"
+                className="empty-add-btn"
+                onClick={handleAdd}
+              >
+                + Add Supplier
+              </button>
+            )}
           </div>
-
         ) : (
-
-          /* TABLE */
           <div className="supplier-table-wrapper">
-
             <table className="supplier-table">
-
               <thead>
                 <tr>
                   <th>ID</th>
@@ -602,113 +475,60 @@ function Supplier() {
               </thead>
 
               <tbody>
+                {filteredSuppliers.map((supplier) => {
+                  const supplierId = Number(supplier.supplierId);
 
-                {filteredSuppliers.map(
-                  (supplier) => {
+                  return (
+                    <tr key={supplierId}>
+                      <td>
+                        <span className="supplier-id">
+                          #{supplierId}
+                        </span>
+                      </td>
 
-                    const supplierId =
-                      Number(
-                        supplier.supplierId
-                      );
-
-                    return (
-                      <tr
-                        key={supplierId}
-                      >
-
-                        {/* ID */}
-                        <td>
-                          <span className="supplier-id">
-                            #{supplierId}
-                          </span>
-                        </td>
-
-                        {/* NAME */}
-                        <td>
-                          <div className="supplier-name-cell">
-
-                            <div className="supplier-avatar">
-                              {(
-                                supplier.supplierName ||
-                                "S"
-                              )
-                                .charAt(0)
-                                .toUpperCase()}
-                            </div>
-
-                            <strong>
-                              {supplier.supplierName}
-                            </strong>
-
+                      <td>
+                        <div className="supplier-name-cell">
+                          <div className="supplier-avatar">
+                            {(supplier.supplierName || "S")
+                              .charAt(0)
+                              .toUpperCase()}
                           </div>
-                        </td>
+                          <strong>{supplier.supplierName}</strong>
+                        </div>
+                      </td>
 
-                        {/* CONTACT */}
-                        <td>
-                          {supplier.contactNumber ||
-                            "-"}
-                        </td>
+                      <td>{supplier.contactNumber || "-"}</td>
+                      <td>{supplier.email || "-"}</td>
+                      <td>{supplier.address || "-"}</td>
 
-                        {/* EMAIL */}
-                        <td>
-                          {supplier.email ||
-                            "-"}
-                        </td>
+                      <td>
+                        <div className="supplier-actions">
+                          <button
+                            type="button"
+                            className="edit-supplier-btn"
+                            onClick={() => handleEdit(supplier)}
+                            title="Edit Supplier"
+                          >
+                            ✏️
+                          </button>
 
-                        {/* ADDRESS */}
-                        <td>
-                          {supplier.address ||
-                            "-"}
-                        </td>
-
-                        {/* ACTIONS */}
-                        <td>
-
-                          <div className="supplier-actions">
-
-                            {/* EDIT */}
-                            <button
-                              type="button"
-                              className="edit-supplier-btn"
-                              onClick={() =>
-                                handleEdit(
-                                  supplier
-                                )
-                              }
-                              title="Edit Supplier"
-                            >
-                              ✏️
-                            </button>
-
-                            {/* DELETE */}
-                            <button
-                              type="button"
-                              className="delete-supplier-btn"
-                              onClick={() =>
-                                handleDelete(
-                                  supplierId
-                                )
-                              }
-                              title="Delete Supplier"
-                            >
-                              🗑️
-                            </button>
-
-                          </div>
-
-                        </td>
-
-                      </tr>
-                    );
-                  }
-                )}
-
+                          <button
+                            type="button"
+                            className="delete-supplier-btn"
+                            onClick={() => handleDelete(supplierId)}
+                            title="Delete Supplier"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
-
           </div>
         )}
-
       </div>
     </div>
   );

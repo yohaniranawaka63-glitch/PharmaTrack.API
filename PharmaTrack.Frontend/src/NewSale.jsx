@@ -1,11 +1,6 @@
+
 import { useEffect, useState } from "react";
-import axios from "axios";
-
-const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
-
-// Current logged-in Admin user.
-// Later we can replace this with the actual logged-in user's ID.
-const CURRENT_USER_ID = 9;
+import api from "./api";
 
 function NewSale({ onBack, onSaleCreated }) {
   const [medicines, setMedicines] = useState([]);
@@ -26,10 +21,7 @@ function NewSale({ onBack, onSaleCreated }) {
     loadData();
   }, []);
 
-  // ==========================================
   // LOAD MEDICINES, OTHER ITEMS & BATCHES
-  // ==========================================
-
   const loadData = async () => {
     try {
       setLoading(true);
@@ -39,9 +31,9 @@ function NewSale({ onBack, onSaleCreated }) {
         otherItemResponse,
         batchResponse,
       ] = await Promise.all([
-        api.get(`${API}/Medicine`),
-        api.get(`${API}/OtherItem`),
-        api.get(`${API}/MedicineBatch`),
+        api.get("/Medicine"),
+        api.get("/OtherItem"),
+        api.get("/MedicineBatch"),
       ]);
 
       setMedicines(medicineResponse.data);
@@ -59,10 +51,7 @@ function NewSale({ onBack, onSaleCreated }) {
     }
   };
 
-  // ==========================================
   // GET AVAILABLE BATCH FOR MEDICINE
-  // ==========================================
-
   const getAvailableBatch = (medicineId) => {
     const medicineBatches = batches
       .filter(
@@ -81,10 +70,7 @@ function NewSale({ onBack, onSaleCreated }) {
       : null;
   };
 
-  // ==========================================
   // SELECTED ITEM
-  // ==========================================
-
   const selectedMedicine = medicines.find(
     (medicine) =>
       medicine.medicineId === Number(selectedId)
@@ -95,10 +81,7 @@ function NewSale({ onBack, onSaleCreated }) {
       item.otherItemId === Number(selectedId)
   );
 
-  // ==========================================
   // GET PRICE
-  // ==========================================
-
   const getMedicinePrice = (medicineId) => {
     const batch = getAvailableBatch(medicineId);
 
@@ -118,10 +101,7 @@ function NewSale({ onBack, onSaleCreated }) {
       : 0;
   };
 
-  // ==========================================
   // ADD TO BILL
-  // ==========================================
-
   const addToBill = () => {
     if (!selectedId) {
       alert("Please select an item.");
@@ -133,10 +113,6 @@ function NewSale({ onBack, onSaleCreated }) {
       return;
     }
 
-    // ========================================
-    // MEDICINE
-    // ========================================
-
     if (selectedType === "medicine") {
       const medicine = selectedMedicine;
 
@@ -145,14 +121,10 @@ function NewSale({ onBack, onSaleCreated }) {
         return;
       }
 
-      const batch = getAvailableBatch(
-        medicine.medicineId
-      );
+      const batch = getAvailableBatch(medicine.medicineId);
 
       if (!batch) {
-        alert(
-          `No available stock found for ${medicine.name}.`
-        );
+        alert(`No available stock found for ${medicine.name}.`);
         return;
       }
 
@@ -163,9 +135,7 @@ function NewSale({ onBack, onSaleCreated }) {
         return;
       }
 
-      const price = Number(
-        batch.sellingPrice || 0
-      );
+      const price = Number(batch.sellingPrice || 0);
 
       if (price <= 0) {
         alert(
@@ -183,17 +153,11 @@ function NewSale({ onBack, onSaleCreated }) {
           name: medicine.name,
           strength: medicine.strength || "",
           batchName: batch.batchName,
-          price: price,
+          price,
           quantity: Number(quantity),
         },
       ]);
-    }
-
-    // ========================================
-    // OTHER ITEM
-    // ========================================
-
-    else {
+    } else {
       const item = selectedOtherItem;
 
       if (!item) {
@@ -201,19 +165,14 @@ function NewSale({ onBack, onSaleCreated }) {
         return;
       }
 
-      if (
-        Number(quantity) >
-        Number(item.quantity || 0)
-      ) {
+      if (Number(quantity) > Number(item.quantity || 0)) {
         alert(
           `Insufficient stock for ${item.itemName}.\nAvailable stock: ${item.quantity}`
         );
         return;
       }
 
-      const price = Number(
-        item.sellingPrice || 0
-      );
+      const price = Number(item.sellingPrice || 0);
 
       if (price <= 0) {
         alert(
@@ -228,7 +187,7 @@ function NewSale({ onBack, onSaleCreated }) {
           type: "otherItem",
           id: item.otherItemId,
           name: item.itemName,
-          price: price,
+          price,
           quantity: Number(quantity),
         },
       ]);
@@ -238,40 +197,24 @@ function NewSale({ onBack, onSaleCreated }) {
     setQuantity(1);
   };
 
-  // ==========================================
   // REMOVE FROM BILL
-  // ==========================================
-
   const removeFromBill = (index) => {
     setCart(
-      cart.filter(
-        (_, cartIndex) =>
-          cartIndex !== index
-      )
+      cart.filter((_, cartIndex) => cartIndex !== index)
     );
   };
 
-  // ==========================================
   // TOTAL
-  // ==========================================
-
   const totalAmount = cart.reduce(
     (total, item) =>
-      total +
-      Number(item.price) *
-        Number(item.quantity),
+      total + Number(item.price) * Number(item.quantity),
     0
   );
 
-  // ==========================================
   // CREATE SALE
-  // ==========================================
-
   const createSale = async () => {
     if (cart.length === 0) {
-      alert(
-        "Please add at least one item to the bill."
-      );
+      alert("Please add at least one item to the bill.");
       return;
     }
 
@@ -282,6 +225,29 @@ function NewSale({ onBack, onSaleCreated }) {
 
     try {
       setCreatingSale(true);
+
+      
+
+const storedUser = localStorage.getItem("pharmaTrackUser");
+const loggedInUser = storedUser ? JSON.parse(storedUser) : null;
+
+const userId = Number(
+  loggedInUser?.userId ?? loggedInUser?.UserId
+);
+
+if (!Number.isInteger(userId) || userId <= 0) {
+  alert("Unable to identify the logged-in user. Please log in again.");
+  return;
+}
+
+
+if (!Number.isInteger(userId) || userId <= 0) {
+  alert(
+    "Unable to identify the logged-in user. Please log in again."
+  );
+  return;
+}
+
 
       const saleItems = cart.map((item) => {
         if (item.type === "medicine") {
@@ -299,26 +265,18 @@ function NewSale({ onBack, onSaleCreated }) {
         };
       });
 
-      // IMPORTANT:
-      // User ID 7 is the Admin user currently in DB.
       const saleData = {
-        userId: CURRENT_USER_ID,
-        paymentMethod: paymentMethod,
-        items: saleItems,
-      };
+  userId: userId,
+  paymentMethod: paymentMethod,
+  items: saleItems,
+};
 
       console.log("Creating sale:", saleData);
 
-      const response = await axios.post(
-        `${API}/Sale`,
-        saleData
-      );
+      const response = await api.post("/Sale", saleData);
 
-      const createdSaleId =
-        response.data.saleId;
-
-      const createdTotal =
-        response.data.totalAmount;
+      const createdSaleId = response.data.saleId;
+      const createdTotal = response.data.totalAmount;
 
       alert(
         `Sale created successfully!\n\nSale ID: ${createdSaleId}\nTotal: Rs. ${Number(
@@ -326,128 +284,81 @@ function NewSale({ onBack, onSaleCreated }) {
         ).toFixed(2)}`
       );
 
-      // Clear bill
       setCart([]);
       setSelectedId("");
       setQuantity(1);
 
-      // Refresh stock data
       await loadData();
 
-      // Open bill preview
       if (onSaleCreated) {
         onSaleCreated(createdSaleId);
       }
     } catch (error) {
-      console.error(
-        "Failed to create sale:",
-        error
-      );
-
-      console.error(
-        "Server response:",
-        error.response?.data
-      );
+      console.error("Failed to create sale:", error);
+      console.error("Server response:", error.response?.data);
 
       alert(
         error.response?.data?.message ||
-          "Failed to create sale."
+          error.response?.data?.title ||
+          "Failed to create sale. Please check the server response."
       );
     } finally {
       setCreatingSale(false);
     }
   };
 
-  // ==========================================
   // CURRENCY
-  // ==========================================
-
   const formatCurrency = (amount) => {
-    return `Rs. ${Number(
-      amount || 0
-    ).toLocaleString("en-LK", {
+    return `Rs. ${Number(amount || 0).toLocaleString("en-LK", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
   };
 
-  // ==========================================
   // UI
-  // ==========================================
-
   return (
     <div className="medicine-page">
-
-      {/* HEADER */}
       <div className="medicine-header">
-
         <div>
           <h1>New Sale</h1>
-
-          <p>
-            Create a new pharmacy bill
-          </p>
+          <p>Create a new pharmacy bill</p>
         </div>
 
-        <button
-          className="add-medicine-btn"
-          onClick={onBack}
-        >
+        <button className="add-medicine-btn" onClick={onBack}>
           ← Back to Sales
         </button>
-
       </div>
 
-
-      {/* ADD ITEM SECTION */}
       <div className="stock-section-card">
-
         <div className="stock-section-header">
-
           <div className="stock-section-title">
-
             <div className="stock-section-icon medicine-section-icon">
               🛒
             </div>
 
             <div>
               <h3>Add Item</h3>
-
-              <p>
-                Select medicine or other pharmacy item
-              </p>
+              <p>Select medicine or other pharmacy item</p>
             </div>
-
           </div>
-
         </div>
-
 
         <div
           style={{
             padding: "25px",
             display: "grid",
-            gridTemplateColumns:
-              "180px 1fr 140px 140px",
+            gridTemplateColumns: "180px 1fr 140px 140px",
             gap: "15px",
             alignItems: "end",
           }}
         >
-
-          {/* ITEM TYPE */}
           <div>
-
-            <label>
-              Item Type
-            </label>
+            <label>Item Type</label>
 
             <select
               value={selectedType}
               onChange={(e) => {
-                setSelectedType(
-                  e.target.value
-                );
-
+                setSelectedType(e.target.value);
                 setSelectedId("");
               }}
               style={{
@@ -458,34 +369,17 @@ function NewSale({ onBack, onSaleCreated }) {
                 marginTop: "7px",
               }}
             >
-
-              <option value="medicine">
-                Medicine
-              </option>
-
-              <option value="otherItem">
-                Other Item
-              </option>
-
+              <option value="medicine">Medicine</option>
+              <option value="otherItem">Other Item</option>
             </select>
-
           </div>
 
-
-          {/* ITEM */}
           <div>
-
-            <label>
-              Item
-            </label>
+            <label>Item</label>
 
             <select
               value={selectedId}
-              onChange={(e) =>
-                setSelectedId(
-                  e.target.value
-                )
-              }
+              onChange={(e) => setSelectedId(e.target.value)}
               disabled={loading}
               style={{
                 width: "100%",
@@ -495,98 +389,55 @@ function NewSale({ onBack, onSaleCreated }) {
                 marginTop: "7px",
               }}
             >
-
               <option value="">
-                {loading
-                  ? "Loading items..."
-                  : "Select Item"}
+                {loading ? "Loading items..." : "Select Item"}
               </option>
 
-
               {selectedType === "medicine"
+                ? medicines.map((medicine) => {
+                    const batch = getAvailableBatch(
+                      medicine.medicineId
+                    );
 
-                ? medicines.map(
-                    (medicine) => {
-                      const batch =
-                        getAvailableBatch(
-                          medicine.medicineId
-                        );
-
-                      return (
-                        <option
-                          key={
-                            medicine.medicineId
-                          }
-                          value={
-                            medicine.medicineId
-                          }
-                          disabled={!batch}
-                        >
-                          {medicine.name}
-
-                          {medicine.strength
-                            ? ` - ${medicine.strength}`
-                            : ""}
-
-                          {batch
-                            ? ` - ${formatCurrency(
-                                batch.sellingPrice
-                              )}`
-                            : " - Out of Stock"}
-                        </option>
-                      );
-                    }
-                  )
-
-                : otherItems.map(
-                    (item) => (
+                    return (
                       <option
-                        key={
-                          item.otherItemId
-                        }
-                        value={
-                          item.otherItemId
-                        }
-                        disabled={
-                          Number(
-                            item.quantity || 0
-                          ) <= 0
-                        }
+                        key={medicine.medicineId}
+                        value={medicine.medicineId}
+                        disabled={!batch}
                       >
-                        {item.itemName}
-
-                        {Number(
-                          item.quantity || 0
-                        ) > 0
-                          ? ` - ${formatCurrency(
-                              item.sellingPrice
-                            )}`
+                        {medicine.name}
+                        {medicine.strength
+                          ? ` - ${medicine.strength}`
+                          : ""}
+                        {batch
+                          ? ` - ${formatCurrency(batch.sellingPrice)}`
                           : " - Out of Stock"}
                       </option>
-                    )
-                  )}
-
+                    );
+                  })
+                : otherItems.map((item) => (
+                    <option
+                      key={item.otherItemId}
+                      value={item.otherItemId}
+                      disabled={Number(item.quantity || 0) <= 0}
+                    >
+                      {item.itemName}
+                      {Number(item.quantity || 0) > 0
+                        ? ` - ${formatCurrency(item.sellingPrice)}`
+                        : " - Out of Stock"}
+                    </option>
+                  ))}
             </select>
-
           </div>
 
-
-          {/* QUANTITY */}
           <div>
-
-            <label>
-              Quantity
-            </label>
+            <label>Quantity</label>
 
             <input
               type="number"
               min="1"
               value={quantity}
-              onChange={(e) =>
-                setQuantity(
-                  Number(e.target.value)
-                )
-              }
+              onChange={(e) => setQuantity(Number(e.target.value))}
               style={{
                 width: "100%",
                 padding: "12px",
@@ -595,11 +446,8 @@ function NewSale({ onBack, onSaleCreated }) {
                 marginTop: "7px",
               }}
             />
-
           </div>
 
-
-          {/* ADD BUTTON */}
           <button
             className="add-medicine-btn"
             onClick={addToBill}
@@ -607,48 +455,26 @@ function NewSale({ onBack, onSaleCreated }) {
           >
             + Add to Bill
           </button>
-
         </div>
-
       </div>
 
-
-      {/* CURRENT BILL */}
-      <div
-        className="stock-section-card"
-        style={{
-          marginTop: "25px",
-        }}
-      >
-
+      <div className="stock-section-card" style={{ marginTop: "25px" }}>
         <div className="stock-section-header">
-
           <div className="stock-section-title">
-
             <div className="stock-section-icon medicine-section-icon">
               🧾
             </div>
 
             <div>
               <h3>Current Bill</h3>
-
-              <p>
-                Items added to this sale
-              </p>
+              <p>Items added to this sale</p>
             </div>
-
           </div>
-
         </div>
 
-
-        {/* TABLE */}
         <div className="stock-table-wrapper">
-
           <table className="medicine-table stock-table">
-
             <thead>
-
               <tr>
                 <th>ITEM</th>
                 <th>TYPE</th>
@@ -657,128 +483,75 @@ function NewSale({ onBack, onSaleCreated }) {
                 <th>SUBTOTAL</th>
                 <th>ACTION</th>
               </tr>
-
             </thead>
 
-
             <tbody>
-
               {cart.length === 0 ? (
-
                 <tr>
-
                   <td
                     colSpan="6"
-                    style={{
-                      textAlign: "center",
-                      padding: "40px",
-                    }}
+                    style={{ textAlign: "center", padding: "40px" }}
                   >
                     No items added to the bill.
                   </td>
-
                 </tr>
-
               ) : (
+                cart.map((item, index) => (
+                  <tr key={index}>
+                    <td>
+                      <strong>{item.name}</strong>
 
-                cart.map(
-                  (item, index) => (
-
-                    <tr key={index}>
-
-                      <td>
-                        <strong>
-                          {item.name}
-                        </strong>
-
-                        {item.strength && (
-                          <div
-                            style={{
-                              fontSize: "12px",
-                              color: "#777",
-                              marginTop: "3px",
-                            }}
-                          >
-                            {item.strength}
-                          </div>
-                        )}
-                      </td>
-
-
-                      <td>
-                        {item.type ===
-                        "medicine"
-                          ? "Medicine"
-                          : "Other Item"}
-                      </td>
-
-
-                      <td>
-                        {formatCurrency(
-                          item.price
-                        )}
-                      </td>
-
-
-                      <td>
-                        {item.quantity}
-                      </td>
-
-
-                      <td>
-                        <strong>
-                          {formatCurrency(
-                            item.price *
-                              item.quantity
-                          )}
-                        </strong>
-                      </td>
-
-
-                      <td>
-
-                        <button
-                          onClick={() =>
-                            removeFromBill(
-                              index
-                            )
-                          }
+                      {item.strength && (
+                        <div
                           style={{
-                            border: "none",
-                            background:
-                              "#ffe5e5",
-                            color:
-                              "#d32f2f",
-                            padding:
-                              "8px 12px",
-                            borderRadius:
-                              "6px",
-                            cursor:
-                              "pointer",
-                            fontWeight:
-                              "600",
+                            fontSize: "12px",
+                            color: "#777",
+                            marginTop: "3px",
                           }}
                         >
-                          Remove
-                        </button>
+                          {item.strength}
+                        </div>
+                      )}
+                    </td>
 
-                      </td>
+                    <td>
+                      {item.type === "medicine"
+                        ? "Medicine"
+                        : "Other Item"}
+                    </td>
 
-                    </tr>
+                    <td>{formatCurrency(item.price)}</td>
+                    <td>{item.quantity}</td>
 
-                  )
-                )
+                    <td>
+                      <strong>
+                        {formatCurrency(item.price * item.quantity)}
+                      </strong>
+                    </td>
 
+                    <td>
+                      <button
+                        onClick={() => removeFromBill(index)}
+                        style={{
+                          border: "none",
+                          background: "#ffe5e5",
+                          color: "#d32f2f",
+                          padding: "8px 12px",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                          fontWeight: "600",
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </td>
+                  </tr>
+                ))
               )}
-
             </tbody>
-
           </table>
-
         </div>
 
-
-        {/* TOTAL + PAYMENT */}
         <div
           style={{
             padding: "25px",
@@ -789,21 +562,12 @@ function NewSale({ onBack, onSaleCreated }) {
             flexWrap: "wrap",
           }}
         >
-
-          {/* PAYMENT */}
           <div>
-
-            <label>
-              Payment Method
-            </label>
+            <label>Payment Method</label>
 
             <select
               value={paymentMethod}
-              onChange={(e) =>
-                setPaymentMethod(
-                  e.target.value
-                )
-              }
+              onChange={(e) => setPaymentMethod(e.target.value)}
               style={{
                 marginLeft: "10px",
                 padding: "10px 15px",
@@ -811,61 +575,30 @@ function NewSale({ onBack, onSaleCreated }) {
                 border: "1px solid #ddd",
               }}
             >
-
-              <option value="Cash">
-                Cash
-              </option>
-
-              <option value="Card">
-                Card
-              </option>
-
+              <option value="Cash">Cash</option>
+              <option value="Card">Card</option>
             </select>
-
           </div>
 
-
-          {/* TOTAL */}
           <div>
-
-            <span
-              style={{
-                fontSize: "16px",
-                marginRight: "10px",
-              }}
-            >
+            <span style={{ fontSize: "16px", marginRight: "10px" }}>
               Total:
             </span>
 
-            <strong
-              style={{
-                fontSize: "24px",
-              }}
-            >
+            <strong style={{ fontSize: "24px" }}>
               {formatCurrency(totalAmount)}
             </strong>
-
           </div>
 
-
-          {/* CREATE SALE */}
           <button
             className="add-medicine-btn"
             onClick={createSale}
-            disabled={
-              creatingSale ||
-              cart.length === 0
-            }
+            disabled={creatingSale || cart.length === 0}
           >
-            {creatingSale
-              ? "Creating..."
-              : "✓ Create Sale"}
+            {creatingSale ? "Creating..." : "✓ Create Sale"}
           </button>
-
         </div>
-
       </div>
-
     </div>
   );
 }
