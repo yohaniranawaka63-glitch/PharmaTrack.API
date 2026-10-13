@@ -1,15 +1,18 @@
 using Microsoft.EntityFrameworkCore;
 using PharmaTrack.API.Data;
+using PharmaTrack.API.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllers()
+
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.ReferenceHandler =
             System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
     });
+    builder.Services.AddScoped<EmailService>();
 
 
 builder.Services.AddCors(options =>

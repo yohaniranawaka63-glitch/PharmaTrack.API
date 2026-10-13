@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import api from "./api";
 import "./Login.css";
@@ -7,13 +6,11 @@ function Login({ onLogin }) {
   const [userName, setUserName] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async (e) => {
     e.preventDefault();
-
     setError("");
 
     if (!userName.trim() || !password) {
@@ -24,25 +21,19 @@ function Login({ onLogin }) {
     try {
       setLoading(true);
 
-      const response = await api.post(
-  "/User/login",
-  {
-    userName: userName.trim(),
-    password: password,
-  }
-);
+      const response = await api.post("/User/login", {
+        userName: userName.trim(),
+        password: password,
+      });
 
       const user = response.data;
 
-      // Save logged-in user
       localStorage.setItem(
         "pharmaTrackUser",
         JSON.stringify(user)
       );
 
-      // Send user information to App
       onLogin(user);
-
     } catch (error) {
       console.error("Login failed:", error);
 
@@ -62,20 +53,12 @@ function Login({ onLogin }) {
 
   return (
     <div className="login-page">
-
       {/* LEFT SIDE */}
-
       <div className="login-brand">
-
         <div className="brand-content">
+          <div className="brand-logo">+</div>
 
-          <div className="brand-logo">
-            +
-          </div>
-
-          <h1>
-            ISURI PHARMACY
-          </h1>
+          <h1>ISURI PHARMACY</h1>
 
           <p className="brand-subtitle">
             Pharmacy Management System
@@ -89,7 +72,6 @@ function Login({ onLogin }) {
           </p>
 
           <div className="brand-features">
-
             <div>
               <span>✓</span>
               Secure Pharmacy Management
@@ -97,53 +79,35 @@ function Login({ onLogin }) {
 
             <div>
               <span>✓</span>
-              Stock & Inventory Management
+              Stock &amp; Inventory Management
             </div>
 
             <div>
               <span>✓</span>
-              Sales & Reports
+              Sales &amp; Reports
             </div>
-
           </div>
-
         </div>
-
       </div>
 
       {/* RIGHT SIDE */}
-
       <div className="login-section">
-
         <div className="login-card">
-
           <div className="login-header">
-
-            <h2>
-              Welcome Back
-            </h2>
+            <h2>Welcome Back</h2>
 
             <p>
               Sign in to access your pharmacy system
             </p>
-
           </div>
 
           <form onSubmit={handleLogin}>
-
             {/* USERNAME */}
-
             <div className="login-field">
-
-              <label>
-                Username
-              </label>
+              <label>Username</label>
 
               <div className="input-wrapper">
-
-                <span className="input-icon">
-                  👤
-                </span>
+                <span className="input-icon">👤</span>
 
                 <input
                   type="text"
@@ -154,31 +118,18 @@ function Login({ onLogin }) {
                   }
                   autoComplete="username"
                 />
-
               </div>
-
             </div>
 
             {/* PASSWORD */}
-
             <div className="login-field">
-
-              <label>
-                Password
-              </label>
+              <label>Password</label>
 
               <div className="input-wrapper">
-
-                <span className="input-icon">
-                  🔒
-                </span>
+                <span className="input-icon">🔒</span>
 
                 <input
-                  type={
-                    showPassword
-                      ? "text"
-                      : "password"
-                  }
+                  type={showPassword ? "text" : "password"}
                   placeholder="Enter your password"
                   value={password}
                   onChange={(e) =>
@@ -201,53 +152,47 @@ function Login({ onLogin }) {
                 >
                   {showPassword ? "🙈" : "👁️"}
                 </button>
-
               </div>
+            </div>
 
+            {/* FORGOT PASSWORD LINK */}
+            <div style={{ textAlign: "right", marginBottom: "18px" }}>
+              <a
+                href="/forgot-password"
+                style={{
+                  color: "#087f5b",
+                  textDecoration: "none",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                }}
+              >
+                Forgot Password?
+              </a>
             </div>
 
             {/* ERROR */}
-
             {error && (
-
               <div className="login-error">
                 ⚠️ {error}
               </div>
-
             )}
 
             {/* LOGIN BUTTON */}
-
             <button
               type="submit"
               className="login-button"
               disabled={loading}
             >
-              {loading ? (
-                "Signing in..."
-              ) : (
-                "Sign In"
-              )}
+              {loading ? "Signing in..." : "Sign In"}
             </button>
-
           </form>
 
           <div className="login-footer">
-
-            <span>
-              Powered by
-            </span>
-
-            <strong>
-              PharmaTrack
-            </strong>
-
+            <span>Powered by</span>
+            <strong>PharmaTrack</strong>
           </div>
-
         </div>
-
       </div>
-
     </div>
   );
 }

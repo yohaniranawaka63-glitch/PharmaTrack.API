@@ -33,6 +33,8 @@ namespace PharmaTrack.API.Data
 
         public DbSet<SupportRequest> SupportRequests { get; set; }
 
+        public DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);

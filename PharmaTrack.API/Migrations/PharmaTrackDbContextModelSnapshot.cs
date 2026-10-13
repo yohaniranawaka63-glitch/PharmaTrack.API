@@ -144,6 +144,38 @@ namespace PharmaTrack.API.Migrations
                     b.ToTable("OtherItem");
                 });
 
+            modelBuilder.Entity("PharmaTrack.API.Models.PasswordResetToken", b =>
+                {
+                    b.Property<int>("PasswordResetTokenId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("PasswordResetTokenId"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime?>("UsedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("PasswordResetTokenId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("PasswordResetToken");
+                });
+
             modelBuilder.Entity("PharmaTrack.API.Models.ProductCategory", b =>
                 {
                     b.Property<int>("CategoryId")
@@ -391,6 +423,17 @@ namespace PharmaTrack.API.Migrations
                         .HasForeignKey("ProductCategoryId");
 
                     b.Navigation("ProductCategory");
+                });
+
+            modelBuilder.Entity("PharmaTrack.API.Models.PasswordResetToken", b =>
+                {
+                    b.HasOne("PharmaTrack.API.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("PharmaTrack.API.Models.SupportRequest", b =>

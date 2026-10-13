@@ -16,11 +16,29 @@ import Settings from "./Settings";
 import Help from "./Help";
 import SupportRequests from "./SupportRequests";
 import Login from "./Login";
+import ForgotPassword from "./ForgotPassword";
+import ResetPassword from "./ResetPassword";
 
 const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
 
+
 function App() {
+  const path = window.location.pathname;
+
+  if (path === "/forgot-password") {
+    return <ForgotPassword />;
+  }
+
+  if (path === "/reset-password") {
+    return <ResetPassword />;
+  }
+
+  return <MainApp />;
+}
+
+function MainApp() {
   const [loggedInUser, setLoggedInUser] = useState(null);
+
 
   const [medicines, setMedicines] = useState([]);
   const [sales, setSales] = useState([]);

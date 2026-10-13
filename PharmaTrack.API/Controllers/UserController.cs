@@ -103,7 +103,7 @@ namespace PharmaTrack.API.Controllers
 
                 bool duplicateEmail = await _context.Users
                     .AnyAsync(u => u.Email != null &&
-                                   u.Email.ToLower() == user.Email);
+                                   u.Email.Equals(user.Email, StringComparison.CurrentCultureIgnoreCase));
 
                 if (duplicateEmail)
                     return BadRequest(new { message = "Email address is already registered." });
@@ -290,10 +290,11 @@ namespace PharmaTrack.API.Controllers
                 if (duplicateUser)
                     return BadRequest(new { message = "Username already exists for another user." });
 
-                bool duplicateEmail = await _context.Users
-                    .AnyAsync(u => u.Email != null &&
-                                   u.Email.ToLower() == updatedUser.Email &&
-                                   u.UserId != id);
+               bool duplicateEmail = !string.IsNullOrWhiteSpace(updatedUser.Email) &&
+    await _context.Users.AnyAsync(u =>
+        u.Email != null &&
+        u.Email.ToLower() == updatedUser.Email.ToLower() &&
+        u.UserId != id);
 
                 if (duplicateEmail)
                     return BadRequest(new { message = "Email address is already registered to another user." });
