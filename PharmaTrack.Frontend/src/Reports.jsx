@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 
-const API = "http://https://pharmatrack-api-b0035.containers.snapdeploy.app/api/api";
+
+const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
 
 function Reports() {
   const [sales, setSales] = useState([]);
