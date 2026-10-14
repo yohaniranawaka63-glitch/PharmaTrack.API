@@ -18,7 +18,7 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
       setLoading(true);
       setError("");
 
-      const response = await axios.get(API_URL);
+      const response = await axios.get(`${API}/SupportRequest`);
       setRequests(response.data);
     } catch (err) {
       console.error("Error loading support requests:", err);
@@ -31,7 +31,7 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
   const updateStatus = async (id, status) => {
     try {
       await axios.put(
-        `${API_URL}/${id}/status`,
+        `${API}/SupportRequest/${id}/status`,
         JSON.stringify(status),
         {
           headers: {
@@ -59,7 +59,7 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
     if (!confirmDelete) return;
 
     try {
-      await axios.delete(`${API_URL}/${id}`);
+      await axios.delete(`${API}/SupportRequest/${id}`);
 
       setRequests((prev) =>
         prev.filter((request) => request.requestId !== id)
