@@ -21,7 +21,8 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins(
                 "http://localhost:5173",
-                "https://pharmatrack-frontend-sooty.vercel.app"
+                "https://pharmatrack-frontend-sooty.vercel.app",
+                "https://pharmatrack-frontend-isc0qzae9-pharma-track1.vercel.app"
             )
             .AllowAnyHeader()
             .AllowAnyMethod();
