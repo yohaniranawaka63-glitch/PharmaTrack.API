@@ -21,10 +21,12 @@ function Login({ onLogin }) {
     try {
       setLoading(true);
 
-      const response = await api.post("/User/login", {
-        userName: userName.trim(),
-        password: password,
-      });
+      
+const response = await api.post("/User/login", {
+  UserName: userName.trim(),
+  Password: password,
+});
+
 
       const user = response.data;
 

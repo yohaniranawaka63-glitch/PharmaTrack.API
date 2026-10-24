@@ -22,11 +22,11 @@ function Medicine() {
   });
 
   // LOAD MEDICINES
-  useEffect(() => {
-    loadMedicines();
-  }, []);
+useEffect(() => {
+  loadMedicines();
+}, []);
 
-  const loadMedicines = async () => {
+const loadMedicines = async () => {
   try {
     const response = await api.get("/Medicine");
 
@@ -36,8 +36,8 @@ function Medicine() {
       ? response.data
       : [];
 
-    setMedicines(
-      data.map((medicine) => ({
+    const activeMedicines = data
+      .map((medicine) => ({
         ...medicine,
         medicineId: medicine.medicineId ?? medicine.MedicineId,
         name: medicine.name ?? medicine.Name ?? "",
@@ -48,16 +48,18 @@ function Medicine() {
         strength: medicine.strength ?? medicine.Strength ?? "",
         isActive: medicine.isActive ?? medicine.IsActive,
       }))
-    );
+      .filter((medicine) => medicine.isActive === true);
+
+    setMedicines(activeMedicines);
   } catch (error) {
     console.error("Error loading medicines:", error);
+
     alert(
       error.response?.data?.message ||
         "Failed to load medicines."
     );
   }
 };
-
   // LOGOUT
   const handleLogout = () => {
     sessionStorage.removeItem("pharmaTrackUser");
