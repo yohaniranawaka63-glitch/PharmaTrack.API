@@ -2,7 +2,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api",
+ baseURL: "https://pharma-track-api-git-main-pharma-track1.vercel.app/api",
 });
 
 api.interceptors.request.use(
