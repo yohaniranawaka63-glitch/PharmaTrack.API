@@ -110,8 +110,8 @@ function Stock() {
 
       const [medicineResponse, otherItemResponse] =
         await Promise.all([
-          api.get("/Stock/Medicines"),
-          api.get("/Stock/OtherItems"),
+          api.get("/MedicineBatch"),
+          api.get("/OtherItem"),
         ]);
 
       const medicineRows = Array.isArray(medicineResponse.data)

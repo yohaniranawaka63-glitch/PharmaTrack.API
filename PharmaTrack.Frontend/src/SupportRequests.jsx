@@ -7,7 +7,7 @@ function SupportRequests() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
+const API = import.meta.env.VITE_API_BASE_URL || "https://pharma-track-api-git-main-pharma-track1.vercel.app/api";
 
   useEffect(() => {
     loadRequests();
