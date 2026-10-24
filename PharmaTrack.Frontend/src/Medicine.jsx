@@ -27,21 +27,36 @@ function Medicine() {
   }, []);
 
   const loadMedicines = async () => {
-    try {
-      const response = await api.get("/Medicine");
+  try {
+    const response = await api.get("/Medicine");
 
-      setMedicines(
-        Array.isArray(response.data) ? response.data : []
-      );
-    } catch (error) {
-      console.error("Error loading medicines:", error);
+    console.log("Medicine API response:", response.data);
 
-      alert(
-        error.response?.data?.message ||
-          "Failed to load medicines."
-      );
-    }
-  };
+    const data = Array.isArray(response.data)
+      ? response.data
+      : [];
+
+    setMedicines(
+      data.map((medicine) => ({
+        ...medicine,
+        medicineId: medicine.medicineId ?? medicine.MedicineId,
+        name: medicine.name ?? medicine.Name ?? "",
+        genericName:
+          medicine.genericName ?? medicine.GenericName ?? "",
+        category: medicine.category ?? medicine.Category ?? "",
+        unit: medicine.unit ?? medicine.Unit ?? "",
+        strength: medicine.strength ?? medicine.Strength ?? "",
+        isActive: medicine.isActive ?? medicine.IsActive,
+      }))
+    );
+  } catch (error) {
+    console.error("Error loading medicines:", error);
+    alert(
+      error.response?.data?.message ||
+        "Failed to load medicines."
+    );
+  }
+};
 
   // LOGOUT
   const handleLogout = () => {
