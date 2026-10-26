@@ -1,6 +1,7 @@
-
+﻿
 import { useEffect, useState } from "react";
 import api from "./api";
+import { Pill, Search, LogOut, Plus, X, Pencil, Ban, ClipboardList, Check, MoreHorizontal } from "lucide-react";
 
 function Medicine() {
   const [medicines, setMedicines] = useState([]);
@@ -10,6 +11,7 @@ function Medicine() {
   const [editingMedicine, setEditingMedicine] = useState(null);
   const [saving, setSaving] = useState(false);
   const [deactivatingId, setDeactivatingId] = useState(null);
+  const [showInactive, setShowInactive] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -29,35 +31,23 @@ useEffect(() => {
 const loadMedicines = async () => {
   try {
     const response = await api.get("/Medicine");
+    const data = Array.isArray(response.data) ? response.data : [];
 
-    console.log("Medicine API response:", response.data);
+    const normalizedMedicines = data.map((medicine) => ({
+      ...medicine,
+      medicineId: medicine.medicineId ?? medicine.MedicineId,
+      name: medicine.name ?? medicine.Name ?? "",
+      genericName: medicine.genericName ?? medicine.GenericName ?? "",
+      category: medicine.category ?? medicine.Category ?? "",
+      unit: medicine.unit ?? medicine.Unit ?? "",
+      strength: medicine.strength ?? medicine.Strength ?? "",
+      isActive: (medicine.isActive ?? medicine.IsActive) === true,
+    }));
 
-    const data = Array.isArray(response.data)
-      ? response.data
-      : [];
-
-    const activeMedicines = data
-      .map((medicine) => ({
-        ...medicine,
-        medicineId: medicine.medicineId ?? medicine.MedicineId,
-        name: medicine.name ?? medicine.Name ?? "",
-        genericName:
-          medicine.genericName ?? medicine.GenericName ?? "",
-        category: medicine.category ?? medicine.Category ?? "",
-        unit: medicine.unit ?? medicine.Unit ?? "",
-        strength: medicine.strength ?? medicine.Strength ?? "",
-        isActive: medicine.isActive ?? medicine.IsActive,
-      }))
-      .filter((medicine) => medicine.isActive === true);
-
-    setMedicines(activeMedicines);
+    setMedicines(normalizedMedicines);
   } catch (error) {
     console.error("Error loading medicines:", error);
-
-    alert(
-      error.response?.data?.message ||
-        "Failed to load medicines."
-    );
+    alert(error.response?.data?.message || "Failed to load medicines.");
   }
 };
   // LOGOUT
@@ -244,43 +234,54 @@ const loadMedicines = async () => {
     }
   };
 
-  // DEACTIVATE MEDICINE
-  const handleDeleteMedicine = async (medicineId) => {
+  // ACTIVATE / DEACTIVATE MEDICINE (preserves database records)
+  const handleToggleMedicineStatus = async (medicine) => {
     if (deactivatingId !== null) return;
 
-    const confirmDeactivate = window.confirm(
-      "Are you sure you want to deactivate this medicine?\n\n" +
-        "It will be removed from the active medicine list. " +
-        "Historical stock and sales records will be preserved."
-    );
+    const medicineId = Number(medicine.medicineId);
+    if (!Number.isInteger(medicineId) || medicineId <= 0) {
+      alert("Medicine ID not found.");
+      return;
+    }
 
-    if (!confirmDeactivate) return;
+    const newStatus = !medicine.isActive;
+    const action = newStatus ? "activate" : "deactivate";
+    const confirmed = window.confirm(
+      newStatus
+        ? `Activate "${medicine.name}" again?`
+        : `Deactivate "${medicine.name}"?\n\nThe medicine record and historical stock/sales records will be preserved.`
+    );
+    if (!confirmed) return;
 
     try {
       setDeactivatingId(medicineId);
 
-      await api.delete(`/Medicine/${medicineId}`);
+      if (newStatus) {
+        await api.patch(`/Medicine/${medicineId}/status`, { isActive: true });
+      } else {
+        // Existing DELETE endpoint performs a soft-deactivation (IsActive=false), not a database delete.
+        await api.delete(`/Medicine/${medicineId}`);
+      }
 
       await loadMedicines();
-
-      alert("Medicine deactivated successfully.");
+      alert(`Medicine ${newStatus ? "activated" : "deactivated"} successfully.`);
     } catch (error) {
-      console.error("Medicine deactivation error:", error);
-
+      console.error(`Medicine ${action} error:`, error);
       alert(
         error.response?.data?.message ||
-          error.response?.data?.title ||
-          "Failed to deactivate medicine."
+        error.response?.data?.title ||
+        `Failed to ${action} medicine.`
       );
     } finally {
       setDeactivatingId(null);
     }
   };
 
-  // SEARCH
+  // SEARCH AND ACTIVE / INACTIVE FILTER
   const filteredMedicines = medicines.filter((medicine) => {
-    const searchText = search.toLowerCase().trim();
+    if (showInactive ? medicine.isActive : !medicine.isActive) return false;
 
+    const searchText = search.toLowerCase().trim();
     if (!searchText) return true;
 
     return (
@@ -291,13 +292,16 @@ const loadMedicines = async () => {
     );
   });
 
+  const activeCount = medicines.filter((medicine) => medicine.isActive).length;
+  const inactiveCount = medicines.length - activeCount;
+
   return (
     <div className="medicine-page">
       {/* HEADER */}
       <div className="medicine-header">
         <div>
           <div className="medicine-title-row">
-            <div className="medicine-title-icon">💊</div>
+            <div className="medicine-title-icon"><Pill size={22} /></div>
 
             <div>
               <h1>Medicine Management</h1>
@@ -328,7 +332,7 @@ const loadMedicines = async () => {
               fontWeight: "600",
             }}
           >
-            ↪ Logout
+            <LogOut size={16} /> Logout
           </button>
 
           <button
@@ -336,7 +340,7 @@ const loadMedicines = async () => {
             className="add-medicine-btn"
             onClick={handleAddMedicine}
           >
-            <span>＋</span>
+            <span><Plus size={16} /></span>
             Add Medicine
           </button>
         </div>
@@ -345,7 +349,7 @@ const loadMedicines = async () => {
       {/* SEARCH AND COUNT */}
       <div className="medicine-toolbar">
         <div className="medicine-search">
-          <span className="search-icon">🔍</span>
+          <span className="search-icon"><Search size={18} /></span>
 
           <input
             type="text"
@@ -360,14 +364,46 @@ const loadMedicines = async () => {
               className="clear-search-btn"
               onClick={() => setSearch("")}
             >
-              ×
+              <X size={16} />
             </button>
           )}
         </div>
 
-        <div className="medicine-count">
-          <strong>{filteredMedicines.length}</strong>
-          <span> Medicines</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+          <button
+            type="button"
+            onClick={() => setShowInactive(false)}
+            style={{
+              padding: "9px 12px",
+              borderRadius: "8px",
+              border: "1px solid #d0d5dd",
+              cursor: "pointer",
+              background: !showInactive ? "#e8f5ee" : "#fff",
+              color: !showInactive ? "#18794e" : "#344054",
+              fontWeight: 600,
+            }}
+          >
+            Active ({activeCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowInactive(true)}
+            style={{
+              padding: "9px 12px",
+              borderRadius: "8px",
+              border: "1px solid #d0d5dd",
+              cursor: "pointer",
+              background: showInactive ? "#fff1f0" : "#fff",
+              color: showInactive ? "#b42318" : "#344054",
+              fontWeight: 600,
+            }}
+          >
+            Inactive ({inactiveCount})
+          </button>
+          <div className="medicine-count">
+            <strong>{filteredMedicines.length}</strong>
+            <span> {showInactive ? "Inactive" : "Active"} Medicines</span>
+          </div>
         </div>
       </div>
 
@@ -377,12 +413,12 @@ const loadMedicines = async () => {
           <div>
             <h2>Medicine List</h2>
             <p>
-              All active medicines registered in the pharmacy
+              {showInactive ? "Inactive medicines preserved in the database" : "All active medicines registered in the pharmacy"}
             </p>
           </div>
 
           <div className="medicine-total-badge">
-            {medicines.length} Active
+            {showInactive ? inactiveCount : activeCount} {showInactive ? "Inactive" : "Active"}
           </div>
         </div>
 
@@ -405,13 +441,15 @@ const loadMedicines = async () => {
                 <tr>
                   <td colSpan="7" className="no-medicine">
                     <div className="empty-medicine">
-                      <div className="empty-icon">💊</div>
+                      <div className="empty-icon"><Pill size={28} /></div>
                       <h3>No medicines found</h3>
 
                       <p>
                         {search
                           ? "Try searching with a different medicine name."
-                          : "Add your first medicine to the pharmacy."}
+                          : showInactive
+                            ? "There are no inactive medicines."
+                            : "Add your first medicine to the pharmacy."}
                       </p>
 
                       {!search && (
@@ -420,7 +458,7 @@ const loadMedicines = async () => {
                           className="empty-add-btn"
                           onClick={handleAddMedicine}
                         >
-                          ＋ Add Medicine
+                          <Plus size={16} /> Add Medicine
                         </button>
                       )}
                     </div>
@@ -438,7 +476,7 @@ const loadMedicines = async () => {
                     <td>
                       <div className="medicine-name-cell">
                         <div className="medicine-row-icon">
-                          💊
+                          <Pill size={18} />
                         </div>
 
                         <div>
@@ -481,22 +519,18 @@ const loadMedicines = async () => {
                           }
                           disabled={deactivatingId !== null}
                         >
-                          ✏️ Edit
+                          <Pencil size={14} /> Edit
                         </button>
 
                         <button
                           type="button"
                           className="delete-medicine-btn"
-                          onClick={() =>
-                            handleDeleteMedicine(
-                              medicine.medicineId
-                            )
-                          }
+                          onClick={() => handleToggleMedicineStatus(medicine)}
                           disabled={deactivatingId !== null}
                         >
                           {deactivatingId === medicine.medicineId
-                            ? "Deactivating..."
-                            : "🚫 Deactivate"}
+                            ? (medicine.isActive ? "Deactivating..." : "Activating...")
+                            : (medicine.isActive ? "Deactivate" : "Activate")}
                         </button>
                       </div>
                     </td>
@@ -521,7 +555,7 @@ const loadMedicines = async () => {
             <div className="medicine-modal-header">
               <div className="medicine-modal-title">
                 <div className="medicine-modal-icon">
-                  {editingMedicine ? "✏️" : "💊"}
+                  {editingMedicine ? <Pencil size={20} /> : <Pill size={20} />}
                 </div>
 
                 <div>
@@ -545,14 +579,14 @@ const loadMedicines = async () => {
                 onClick={handleCloseForm}
                 disabled={saving}
               >
-                ×
+                <X size={16} />
               </button>
             </div>
 
             <form onSubmit={handleSubmit}>
               <div className="medicine-modal-body">
                 <div className="medicine-form-section-title">
-                  <span>📋</span>
+                  <span><ClipboardList size={18} /></span>
                   Medicine Information
                 </div>
 
@@ -718,8 +752,8 @@ const loadMedicines = async () => {
                   {saving
                     ? "Saving..."
                     : editingMedicine
-                    ? "✓ Update Medicine"
-                    : "＋ Save Medicine"}
+                    ? "Update Medicine"
+                    : "Save Medicine"}
                 </button>
               </div>
             </form>

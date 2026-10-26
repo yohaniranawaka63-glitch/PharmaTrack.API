@@ -1,6 +1,29 @@
-
+﻿
 import { useEffect, useState } from "react";
-import axios from "axios";
+import api from "./api";
+import {
+  LayoutDashboard,
+  Pill,
+  Package,
+  ShoppingCart,
+  Truck,
+  Users,
+  BarChart3,
+  LifeBuoy,
+  Settings as SettingsIcon,
+  ClipboardList,
+  Wrench,
+  BellRing,
+  DollarSign,
+  Banknote,
+  CreditCard,
+  Search,
+  LogOut,
+  Check,
+  X,
+  ArrowRight,
+  MoreHorizontal,
+} from "lucide-react";
 import "./App.css";
 
 import Medicine from "./Medicine";
@@ -18,8 +41,6 @@ import SupportRequests from "./SupportRequests";
 import Login from "./Login";
 import ForgotPassword from "./ForgotPassword";
 import ResetPassword from "./ResetPassword";
-
-const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
 
 
 function App() {
@@ -97,11 +118,11 @@ function MainApp() {
       setDashboardLoading(true);
 
       const results = await Promise.allSettled([
-        axios.get(`${API}/Medicine`),
-        axios.get(`${API}/Sale`),
-        axios.get(`${API}/MedicineBatch`),
-        axios.get(`${API}/OtherItem`),
-        axios.get(`${API}/MedicineBatch/ExpiryAlerts`),
+        api.get("/Medicine"),
+        api.get("/Sale"),
+        api.get("/MedicineBatch"),
+        api.get("/OtherItem"),
+        api.get("/MedicineBatch/ExpiryAlerts"),
       ]);
 
       if (cancelled) return;
@@ -138,17 +159,48 @@ function MainApp() {
         console.error("Failed to load other items:", results[3].reason);
       }
 
-      if (results[4].status === "fulfilled") {
-        setExpiryAlerts({
-          expiredCount: results[4].value.data?.expiredCount ?? 0,
-          expiringSoonCount:
-            results[4].value.data?.expiringSoonCount ?? 0,
-          expired: results[4].value.data?.expired ?? [],
-          expiringSoon: results[4].value.data?.expiringSoon ?? [],
-        });
-      } else {
-        console.error("Failed to load expiry alerts:", results[4].reason);
-      }
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const batchData =
+        results[2].status === "fulfilled" &&
+        Array.isArray(results[2].value.data)
+          ? results[2].value.data
+          : [];
+
+      const activeBatches = batchData.filter((batch) => {
+        const isActive = batch.IsActive ?? batch.isActive ?? true;
+        return isActive === true;
+      });
+
+      const expired = [];
+      const expiringSoon = [];
+
+      activeBatches.forEach((batch) => {
+        const expiryValue = batch.ExpiryDate ?? batch.expiryDate;
+        if (!expiryValue) return;
+
+        const expiryDate = new Date(expiryValue);
+        if (Number.isNaN(expiryDate.getTime())) return;
+        expiryDate.setHours(0, 0, 0, 0);
+
+        const daysLeft = Math.round(
+          (expiryDate.getTime() - today.getTime()) / 86400000
+        );
+
+        if (daysLeft < 0) {
+          expired.push(batch);
+        } else if (daysLeft <= 30) {
+          expiringSoon.push(batch);
+        }
+      });
+
+      setExpiryAlerts({
+        expiredCount: expired.length,
+        expiringSoonCount: expiringSoon.length,
+        expired,
+        expiringSoon,
+      });
 
       setDashboardLoading(false);
     };
@@ -338,7 +390,7 @@ function MainApp() {
 
   // Format date
   const formatDate = (date) => {
-    if (!date) return "—";
+    if (!date) return "-";
 
     return new Date(date).toLocaleDateString("en-GB", {
       day: "2-digit",
@@ -348,14 +400,35 @@ function MainApp() {
     });
   };
 
+  
   // Prepare expiry alert rows.
   const expiryRows = [
     ...(expiryAlerts.expired || []).map((item) => ({
       ...item,
+      batchId: item.batchId ?? item.BatchId ?? item.id ?? item.Id,
+      batchName: item.batchName ?? item.BatchName ?? "",
+      expiryDate: item.expiryDate ?? item.ExpiryDate,
+      quantity: item.quantity ?? item.Quantity ?? 0,
+      medicineName:
+        item.medicineName ??
+        item.MedicineName ??
+        item.Medicine?.Name ??
+        item.Medicine?.name ??
+        "",
       alertType: "Expired",
     })),
     ...(expiryAlerts.expiringSoon || []).map((item) => ({
       ...item,
+      batchId: item.batchId ?? item.BatchId ?? item.id ?? item.Id,
+      batchName: item.batchName ?? item.BatchName ?? "",
+      expiryDate: item.expiryDate ?? item.ExpiryDate,
+      quantity: item.quantity ?? item.Quantity ?? 0,
+      medicineName:
+        item.medicineName ??
+        item.MedicineName ??
+        item.Medicine?.Name ??
+        item.Medicine?.name ??
+        "",
       alertType: "Expiring Soon",
     })),
   ];
@@ -384,7 +457,7 @@ function MainApp() {
               className={`menu-item ${currentPage === "dashboard" ? "active" : ""}`}
               onClick={() => navigateTo("dashboard")}
             >
-              <span>▦</span> Dashboard
+              <LayoutDashboard size={18} /> <span>Dashboard</span>
             </a>
           )}
 
@@ -393,7 +466,7 @@ function MainApp() {
               className={`menu-item ${currentPage === "medicine" ? "active" : ""}`}
               onClick={() => navigateTo("medicine")}
             >
-              <span>💊</span> Medicines
+              <Pill size={18} /> <span>Medicines</span>
             </a>
           )}
 
@@ -402,7 +475,7 @@ function MainApp() {
               className={`menu-item ${currentPage === "stock" ? "active" : ""}`}
               onClick={() => navigateTo("stock")}
             >
-              <span>📦</span> Stock
+              <Package size={18} /> <span>Stock</span>
             </a>
           )}
 
@@ -411,7 +484,7 @@ function MainApp() {
               className={`menu-item ${currentPage === "otherItem" ? "active" : ""}`}
               onClick={() => navigateTo("otherItem")}
             >
-              <span>🛍️</span> Other Items
+              <ShoppingCart size={18} /> <span>Other Items</span>
             </a>
           )}
 
@@ -424,7 +497,7 @@ function MainApp() {
               }`}
               onClick={() => navigateTo("sales")}
             >
-              <span>🧾</span> Sales
+              <ClipboardList size={18} /> <span>Sales</span>
             </a>
           )}
 
@@ -433,7 +506,7 @@ function MainApp() {
               className={`menu-item ${currentPage === "suppliers" ? "active" : ""}`}
               onClick={() => navigateTo("suppliers")}
             >
-              <span>🚚</span> Suppliers
+              <Truck size={18} /> <span>Suppliers</span>
             </a>
           )}
 
@@ -446,7 +519,7 @@ function MainApp() {
               className={`menu-item ${currentPage === "users" ? "active" : ""}`}
               onClick={() => navigateTo("users")}
             >
-              <span>👥</span> Users
+              <Users size={18} /> <span>Users</span>
             </a>
           )}
 
@@ -455,7 +528,7 @@ function MainApp() {
               className={`menu-item ${currentPage === "reports" ? "active" : ""}`}
               onClick={() => navigateTo("reports")}
             >
-              <span>📊</span> Reports
+              <BarChart3 size={18} /> <span>Reports</span>
             </a>
           )}
 
@@ -466,7 +539,7 @@ function MainApp() {
               }`}
               onClick={() => navigateTo("supportRequests")}
             >
-              <span>🛠️</span> Support Requests
+              <LifeBuoy size={18} /> <span>Support Requests</span>
             </a>
           )}
 
@@ -475,7 +548,7 @@ function MainApp() {
               className={`menu-item ${currentPage === "settings" ? "active" : ""}`}
               onClick={() => navigateTo("settings")}
             >
-              <span>⚙</span> Settings
+              <SettingsIcon size={18} /> <span>Settings</span>
             </a>
           )}
         </nav>
@@ -547,7 +620,7 @@ function MainApp() {
 
               <div className="header-right">
                 <div className="search-box">
-                  <span>⌕</span>
+                  <Search size={18} />
                   <input type="text" placeholder="Search anything..." />
                 </div>
 
@@ -561,7 +634,7 @@ function MainApp() {
                       ?.scrollIntoView({ behavior: "smooth" })
                   }
                 >
-                  🔔
+                  <BellRing size={18} />
                   {(expiryAlerts.expiredCount +
                     expiryAlerts.expiringSoonCount) > 0 && (
                     <span className="notification-dot"></span>
@@ -584,7 +657,7 @@ function MainApp() {
                     title="Logout"
                     type="button"
                   >
-                    ↪
+                    <LogOut size={18} />
                   </button>
                 </div>
               </div>
@@ -594,7 +667,7 @@ function MainApp() {
             <section className="summary-grid">
               <div className="summary-card">
                 <div className="card-top">
-                  <div className="card-icon green">💰</div>
+                  <div className="card-icon green"><DollarSign size={22} /></div>
                   <span className="growth positive">Sales</span>
                 </div>
                 <p>Total Sales</p>
@@ -604,7 +677,7 @@ function MainApp() {
 
               <div className="summary-card">
                 <div className="card-top">
-                  <div className="card-icon blue">🧾</div>
+                  <div className="card-icon blue"><ClipboardList size={22} /></div>
                   <span className="growth positive">Bills</span>
                 </div>
                 <p>Total Bills</p>
@@ -614,7 +687,7 @@ function MainApp() {
 
               <div className="summary-card">
                 <div className="card-top">
-                  <div className="card-icon orange">💵</div>
+                  <div className="card-icon orange"><Banknote size={22} /></div>
                   <span className="growth positive">Cash</span>
                 </div>
                 <p>Cash Sales</p>
@@ -624,7 +697,7 @@ function MainApp() {
 
               <div className="summary-card">
                 <div className="card-top">
-                  <div className="card-icon red">💳</div>
+                  <div className="card-icon red"><CreditCard size={22} /></div>
                   <span className="growth positive">Card</span>
                 </div>
                 <p>Card Sales</p>
@@ -713,7 +786,7 @@ function MainApp() {
                 <div className="inventory-status">
                   <div className="status-row">
                     <div className="status-left">
-                      <div className="status-icon available">✓</div>
+                      <div className="status-icon available"><Check size={18} /></div>
                       <div>
                         <strong>Registered Medicines</strong>
                         <span>Current medicine records</span>
@@ -737,7 +810,7 @@ function MainApp() {
 
                   <div className="status-row">
                     <div className="status-left">
-                      <div className="status-icon out">×</div>
+                      <div className="status-icon out"><X size={18} /></div>
                       <div>
                         <strong>Out of Stock</strong>
                         <span>Currently unavailable</span>
@@ -761,7 +834,7 @@ function MainApp() {
               <div className="inventory-status">
                 <div className="status-row">
                   <div className="status-left">
-                    <div className="status-icon out">!</div>
+                    <div className="status-icon out"><X size={18} /></div>
                     <div>
                       <strong>Expired Medicines</strong>
                       <span>Check these batches immediately</span>
@@ -800,7 +873,7 @@ function MainApp() {
                     </thead>
                     <tbody>
                       {expiryRows.map((item) => (
-                        <tr key={`${item.batchId}-${item.alertType}`}>
+                        <tr key={`${item.batchId ?? `${item.medicineName}-${item.expiryDate}-${item.alertType}`}`}>
                           <td>{item.medicineName}</td>
                           <td>{item.batchName}</td>
                           <td>{formatDate(item.expiryDate)}</td>
@@ -842,7 +915,7 @@ function MainApp() {
                   className="view-all-btn"
                   onClick={() => navigateTo("sales")}
                 >
-                  View All →
+                  View All <ArrowRight size={16} />
                 </button>
               </div>
 
@@ -935,7 +1008,7 @@ function MainApp() {
                     return (
                       <div className="medicine-row" key={medicineId}>
                         <div className="medicine-main">
-                          <div className="medicine-icon">💊</div>
+                          <div className="medicine-icon"><Pill size={22} /></div>
                           <div>
                             <strong>
                               {getValue(medicine, "name", "Name")}
@@ -972,7 +1045,7 @@ function MainApp() {
                         </div>
 
                         <button className="more-btn" type="button">
-                          •••
+                          <MoreHorizontal size={18} />
                         </button>
                       </div>
                     );
@@ -988,3 +1061,15 @@ function MainApp() {
 }
 
 export default App;
+
+
+
+
+
+
+
+
+
+
+
+

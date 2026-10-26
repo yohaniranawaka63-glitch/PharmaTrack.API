@@ -1,4 +1,16 @@
+
 import { useState } from "react";
+import {
+  LogOut,
+  CheckCircle,
+  Building2,
+  Bell,
+  ReceiptText,
+  Settings as SettingsIcon,
+  CircleHelp,
+  ArrowRight,
+  Save,
+} from "lucide-react";
 import "./Settings.css";
 
 function Settings({ onNeedHelp }) {
@@ -10,9 +22,7 @@ function Settings({ onNeedHelp }) {
     savedSettings.pharmacyName || "PharmaTrack Pharmacy"
   );
 
-  const [phone, setPhone] = useState(
-    savedSettings.phone || ""
-  );
+  const [phone, setPhone] = useState(savedSettings.phone || "");
 
   const [address, setAddress] = useState(
     savedSettings.address || ""
@@ -36,7 +46,9 @@ function Settings({ onNeedHelp }) {
 
   const [saved, setSaved] = useState(false);
 
-  const handleSave = () => {
+ 
+const handleSave = () => {
+  try {
     const settings = {
       pharmacyName,
       phone,
@@ -57,9 +69,13 @@ function Settings({ onNeedHelp }) {
     setTimeout(() => {
       setSaved(false);
     }, 2500);
-  };
+  } catch (error) {
+    console.error("Settings save error:", error);
+    alert("Settings can't save.");
+  }
+};
 
-  // LOGOUT
+
   const handleLogout = () => {
     sessionStorage.removeItem("pharmaTrackUser");
     window.location.reload();
@@ -67,9 +83,7 @@ function Settings({ onNeedHelp }) {
 
   return (
     <div className="settings-page">
-
       {/* HEADER */}
-
       <div className="settings-header">
         <div>
           <h1>Settings</h1>
@@ -79,196 +93,139 @@ function Settings({ onNeedHelp }) {
         <button
           type="button"
           onClick={handleLogout}
-          style={{
-            border: "none",
-            background: "#dc3545",
-            color: "#fff",
-            padding: "10px 16px",
-            borderRadius: "8px",
-            cursor: "pointer",
-            fontWeight: "600",
-          }}
+          className="settings-logout-btn"
         >
-          ↪ Logout
+          <LogOut size={16} />
+          Logout
         </button>
       </div>
 
       {/* SUCCESS MESSAGE */}
-
       {saved && (
         <div className="settings-success">
-          ✓ Settings saved successfully
+          <CheckCircle size={17} />
+          Settings saved successfully
         </div>
       )}
 
       {/* PHARMACY INFORMATION */}
-
       <div className="settings-card">
-
         <div className="settings-card-header">
-
           <div className="settings-card-icon">
-            🏥
+            <Building2 size={20} />
           </div>
 
           <div>
             <h2>Pharmacy Information</h2>
             <p>Basic information about your pharmacy</p>
           </div>
-
         </div>
 
         <div className="settings-form-grid">
-
           <div className="settings-field">
-
             <label>Pharmacy Name</label>
-
             <input
               type="text"
               value={pharmacyName}
-              onChange={(e) =>
-                setPharmacyName(e.target.value)
-              }
+              onChange={(e) => setPharmacyName(e.target.value)}
               placeholder="Enter pharmacy name"
             />
-
           </div>
 
           <div className="settings-field">
-
             <label>Phone Number</label>
-
             <input
               type="text"
               value={phone}
-              onChange={(e) =>
-                setPhone(e.target.value)
-              }
+              onChange={(e) => setPhone(e.target.value)}
               placeholder="Enter phone number"
             />
-
           </div>
 
           <div className="settings-field settings-field-full">
-
             <label>Address</label>
-
             <textarea
               value={address}
-              onChange={(e) =>
-                setAddress(e.target.value)
-              }
+              onChange={(e) => setAddress(e.target.value)}
               placeholder="Enter pharmacy address"
               rows="3"
             />
-
           </div>
-
         </div>
-
       </div>
 
       {/* NOTIFICATION SETTINGS */}
-
       <div className="settings-card">
-
         <div className="settings-card-header">
-
           <div className="settings-card-icon">
-            🔔
+            <Bell size={20} />
           </div>
 
           <div>
             <h2>Notification Settings</h2>
             <p>Manage stock and expiry notifications</p>
           </div>
-
         </div>
 
         <div className="settings-option">
-
           <div>
             <strong>Expiry Notifications</strong>
-
             <span>
               Show notifications when medicines are close to expiry
             </span>
           </div>
 
           <label className="settings-switch">
-
             <input
               type="checkbox"
               checked={expiryAlert}
-              onChange={(e) =>
-                setExpiryAlert(e.target.checked)
-              }
+              onChange={(e) => setExpiryAlert(e.target.checked)}
             />
-
             <span></span>
-
           </label>
-
         </div>
 
         <div className="settings-option">
-
           <div>
             <strong>Low Stock Notifications</strong>
-
             <span>
               Show notifications when stock reaches the reorder level
             </span>
           </div>
 
           <label className="settings-switch">
-
             <input
               type="checkbox"
               checked={lowStockAlert}
-              onChange={(e) =>
-                setLowStockAlert(e.target.checked)
-              }
+              onChange={(e) => setLowStockAlert(e.target.checked)}
             />
-
             <span></span>
-
           </label>
-
         </div>
-
       </div>
 
       {/* SALES SETTINGS */}
-
       <div className="settings-card">
-
         <div className="settings-card-header">
-
           <div className="settings-card-icon">
-            🧾
+            <ReceiptText size={20} />
           </div>
 
           <div>
             <h2>Sales Settings</h2>
             <p>Manage basic sales preferences</p>
           </div>
-
         </div>
 
         <div className="settings-option">
-
           <div>
             <strong>Invoice Generation</strong>
-
             <span>
               Generate an invoice after completing a sale
             </span>
           </div>
 
           <label className="settings-switch">
-
             <input
               type="checkbox"
               checked={invoiceGeneration}
@@ -276,25 +233,19 @@ function Settings({ onNeedHelp }) {
                 setInvoiceGeneration(e.target.checked)
               }
             />
-
             <span></span>
-
           </label>
-
         </div>
 
         <div className="settings-option">
-
           <div>
             <strong>Show Payment Method</strong>
-
             <span>
               Display cash or card payment method on invoices
             </span>
           </div>
 
           <label className="settings-switch">
-
             <input
               type="checkbox"
               checked={showPaymentMethod}
@@ -302,34 +253,25 @@ function Settings({ onNeedHelp }) {
                 setShowPaymentMethod(e.target.checked)
               }
             />
-
             <span></span>
-
           </label>
-
         </div>
-
       </div>
 
       {/* SYSTEM INFORMATION */}
-
       <div className="settings-card">
-
         <div className="settings-card-header">
-
           <div className="settings-card-icon">
-            ⚙️
+            <SettingsIcon size={20} />
           </div>
 
           <div>
             <h2>System Information</h2>
             <p>PharmaTrack system information</p>
           </div>
-
         </div>
 
         <div className="settings-info-grid">
-
           <div>
             <span>System Name</span>
             <strong>PharmaTrack</strong>
@@ -344,28 +286,21 @@ function Settings({ onNeedHelp }) {
             <span>Version</span>
             <strong>1.0.0</strong>
           </div>
-
         </div>
-
       </div>
 
       {/* NEED HELP */}
-
       <div className="settings-help">
-
         <div className="settings-help-icon">
-          ?
+          <CircleHelp size={22} />
         </div>
 
         <div className="settings-help-content">
-
           <h2>Need Help?</h2>
-
           <p>
             Having trouble using PharmaTrack?
             Get help and technical support.
           </p>
-
         </div>
 
         <button
@@ -373,25 +308,25 @@ function Settings({ onNeedHelp }) {
           className="settings-help-btn"
           onClick={onNeedHelp}
         >
-          Open Help Center →
+          Open Help Center
+          <ArrowRight size={15} />
         </button>
-
       </div>
 
       {/* SAVE */}
-
       <div className="settings-actions">
-
         <button
           type="button"
           className="settings-save-btn"
-          onClick={handleSave}
+          onClick={() => {
+            alert("Save button clicked!");
+            handleSave();
+          }}
         >
-          ✓ Save Settings
+          <Save size={16} />
+          Save Settings
         </button>
-
       </div>
-
     </div>
   );
 }

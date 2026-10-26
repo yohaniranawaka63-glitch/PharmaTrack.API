@@ -1,8 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import axios from "axios";
-
-
-const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
+import { useEffect, useMemo, useState, useCallback } from "react";
+import api from "./api";
 
 function Reports() {
   const [sales, setSales] = useState([]);
@@ -16,22 +13,22 @@ function Reports() {
   const [error, setError] = useState("");
   const [lastUpdated, setLastUpdated] = useState(null);
 
+   
   // LOAD REPORT DATA
-  const loadReportData = async () => {
+  const loadReportData = useCallback(async () => {
     setLoading(true);
     setError("");
 
     try {
       const endpoints = [
-        { key: "sales", url: `${API}/Sale` },
-        { key: "saleItems", url: `${API}/SaleItem` },
-        { key: "batches", url: `${API}/MedicineBatch` },
-        { key: "medicines", url: `${API}/Medicine` },
-        { key: "otherItems", url: `${API}/OtherItem` },
+        { key: "sales", url: "/Sale" },
+        { key: "batches", url: "/MedicineBatch" },
+        { key: "medicines", url: "/Medicine" },
+        { key: "otherItems", url: "/OtherItem" },
       ];
 
       const results = await Promise.allSettled(
-        endpoints.map((endpoint) => axios.get(endpoint.url))
+        endpoints.map(({ url }) => api.get(url))
       );
 
       const data = {};
@@ -41,21 +38,115 @@ function Reports() {
         const key = endpoints[index].key;
 
         if (result.status === "fulfilled") {
-          data[key] = Array.isArray(result.value.data)
-            ? result.value.data
-            : [];
+          const responseData = result.value.data;
+
+          data[key] = Array.isArray(responseData)
+            ? responseData
+            : Array.isArray(responseData?.data)
+              ? responseData.data
+              : [];
+
+          if (
+            !Array.isArray(responseData) &&
+            !Array.isArray(responseData?.data)
+          ) {
+            failed.push(key);
+          }
         } else {
-          console.error(`Failed to load ${key}:`, result.reason);
+          console.error(
+            `Failed to load ${key}:`,
+            result.reason?.response?.data || result.reason?.message
+          );
+
           data[key] = [];
           failed.push(key);
         }
       });
 
-      const activeOtherItems = data.otherItems || [];
-      const saleItemsData = data.saleItems || [];
+      // Sale API already includes SaleItem records.
+      // Normalize PascalCase/camelCase names for the report.
+      const rawSales = data.sales || [];
 
+      const sales = rawSales.map((sale) => {
+        const saleItems =
+          sale.SaleItem ??
+          sale.saleItem ??
+          sale.saleItems ??
+          [];
+
+        return {
+          ...sale,
+          saleId: sale.SaleId ?? sale.saleId,
+          userId: sale.UserId ?? sale.userId,
+          saleDate: sale.SaleDate ?? sale.saleDate,
+          totalAmount: sale.TotalAmount ?? sale.totalAmount,
+          paymentMethod: sale.PaymentMethod ?? sale.paymentMethod,
+          saleItems: Array.isArray(saleItems)
+            ? saleItems.map((item) => ({
+                ...item,
+                saleItemId: item.SaleItemId ?? item.saleItemId,
+                saleId: item.SaleId ?? item.saleId,
+                batchId: item.BatchId ?? item.batchId,
+                quantity: item.Quantity ?? item.quantity,
+                unitPrice: item.UnitPrice ?? item.unitPrice,
+                subTotal: item.SubTotal ?? item.subTotal,
+                otherItemId: item.OtherItemId ?? item.otherItemId,
+                purchasePriceAtSale:
+                  item.PurchasePriceAtSale ??
+                  item.purchasePriceAtSale,
+              }))
+            : [],
+        };
+      });
+
+      const saleItemsData = sales.flatMap(
+        (sale) => sale.saleItems
+      );
+
+      const normalizeBatch = (batch) => ({
+        ...batch,
+        batchId: batch.BatchId ?? batch.batchId,
+        medicineId: batch.MedicineId ?? batch.medicineId,
+        supplierId: batch.SupplierId ?? batch.supplierId,
+        batchName: batch.BatchName ?? batch.batchName,
+        purchasePrice: batch.PurchasePrice ?? batch.purchasePrice,
+        sellingPrice: batch.SellingPrice ?? batch.sellingPrice,
+        quantity: batch.Quantity ?? batch.quantity,
+        expiryDate: batch.ExpiryDate ?? batch.expiryDate,
+        manufacturingDate:
+          batch.ManufacturingDate ?? batch.manufacturingDate,
+      });
+
+      const normalizeMedicine = (medicine) => ({
+        ...medicine,
+        medicineId: medicine.MedicineId ?? medicine.medicineId,
+        name: medicine.Name ?? medicine.name,
+        genericName: medicine.GenericName ?? medicine.genericName,
+        status: medicine.Status ?? medicine.status,
+      });
+
+      const normalizeOtherItem = (item) => ({
+        ...item,
+        otherItemId: item.OtherItemId ?? item.otherItemId,
+        itemName: item.ItemName ?? item.itemName,
+        purchasePrice: item.PurchasePrice ?? item.purchasePrice,
+        sellingPrice: item.SellingPrice ?? item.sellingPrice,
+        quantity: item.Quantity ?? item.quantity,
+        reorderLevel: item.ReorderLevel ?? item.reorderLevel,
+        status: item.Status ?? item.status,
+      });
+
+      const batches = (data.batches || []).map(normalizeBatch);
+      const medicines = (data.medicines || []).map(normalizeMedicine);
+      const activeOtherItems = (data.otherItems || []).map(
+        normalizeOtherItem
+      );
+
+      // Preserve historical other-item details if an item has been deleted.
       const activeOtherItemIds = new Set(
-        activeOtherItems.map((item) => Number(item.otherItemId))
+        activeOtherItems
+          .map((item) => Number(item.otherItemId))
+          .filter(Number.isFinite)
       );
 
       const historicalOtherItemIds = [
@@ -63,27 +154,39 @@ function Reports() {
           saleItemsData
             .filter((item) => item.otherItemId != null)
             .map((item) => Number(item.otherItemId))
-            .filter((id) => !activeOtherItemIds.has(id))
+            .filter(
+              (id) =>
+                Number.isFinite(id) &&
+                !activeOtherItemIds.has(id)
+            )
         ),
       ];
 
       const historicalResults = await Promise.allSettled(
         historicalOtherItemIds.map((id) =>
-          axios.get(`${API}/OtherItem/${id}/CostDetails`)
+          api.get(`/OtherItem/${id}/CostDetails`)
         )
       );
 
       const historicalItems = [];
 
       historicalResults.forEach((result, index) => {
-        if (result.status === "fulfilled" && result.value.data) {
-          historicalItems.push(result.value.data);
+        if (
+          result.status === "fulfilled" &&
+          result.value.data
+        ) {
+          historicalItems.push(
+            normalizeOtherItem(result.value.data)
+          );
         } else {
-          console.error(
-            `Failed to load historical item ${historicalOtherItemIds[index]}:`,
+          console.warn(
+            `Historical cost details unavailable for item ${
+              historicalOtherItemIds[index]
+            }.`,
             result.status === "rejected"
-              ? result.reason
-              : "No data"
+              ? result.reason?.response?.data ||
+                result.reason?.message
+              : "No data returned"
           );
         }
       });
@@ -96,34 +199,38 @@ function Reports() {
         ),
       ];
 
-      setSales(data.sales);
+      setSales(sales);
       setSaleItems(saleItemsData);
-      setBatches(data.batches);
-      setMedicines(data.medicines);
+      setBatches(batches);
+      setMedicines(medicines);
       setOtherItems(combinedOtherItems);
 
       if (failed.length > 0) {
         setError(
-          `Some report data could not be loaded: ${failed.join(
+          `Could not load some report data: ${failed.join(
             ", "
-          )}. Check the API endpoints.`
+          )}. Check the API endpoints and backend logs.`
         );
       }
 
       setLastUpdated(new Date());
     } catch (err) {
-      console.error("Failed to load reports:", err);
+      console.error(
+        "Failed to load report data:",
+        err.response?.data || err.message
+      );
+
       setError(
-        "Could not load report data. Check that the backend is running."
+        "Could not load report data. Please check the backend API."
       );
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadReportData();
-  }, []);
+  }, [loadReportData]);
 
   // DATE AND MONEY HELPERS
   const today = useMemo(() => {
@@ -1008,8 +1115,8 @@ function Reports() {
                   {[
                     ...stockReport.outOfStock,
                     ...stockReport.lowStock,
-                  ].map((item) => (
-                    <tr key={`${item.type}-${item.id}`}>
+                  ].map((item, index) => (
+                    <tr key={`${item.type}-${item.id ?? item.OtherItemId ?? item.otherItemId ?? item.MedicineId ?? item.medicineId ?? index}`}>
                       <td>{item.name}</td>
                       <td>{item.type}</td>
                       <td>{item.quantity}</td>

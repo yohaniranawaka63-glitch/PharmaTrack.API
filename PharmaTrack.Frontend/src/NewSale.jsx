@@ -21,29 +21,92 @@ function NewSale({ onBack, onSaleCreated }) {
     loadData();
   }, []);
 
-  // LOAD MEDICINES, OTHER ITEMS & BATCHES
+  // LOAD ACTIVE MEDICINES, OTHER ITEMS AND BATCHES
   const loadData = async () => {
     try {
       setLoading(true);
 
-      const [
-        medicineResponse,
-        otherItemResponse,
-        batchResponse,
-      ] = await Promise.all([
-        api.get("/Medicine"),
-        api.get("/OtherItem"),
-        api.get("/MedicineBatch"),
-      ]);
+      const [medicineResponse, otherItemResponse, batchResponse] =
+        await Promise.all([
+          api.get("/Medicine"),
+          api.get("/OtherItem"),
+          api.get("/MedicineBatch"),
+        ]);
 
-      setMedicines(medicineResponse.data);
-      setOtherItems(otherItemResponse.data);
-      setBatches(batchResponse.data);
+      const medicineData = Array.isArray(medicineResponse.data)
+        ? medicineResponse.data
+        : [];
+
+      const otherItemData = Array.isArray(otherItemResponse.data)
+        ? otherItemResponse.data
+        : [];
+
+      const batchData = Array.isArray(batchResponse.data)
+        ? batchResponse.data
+        : [];
+
+      console.log("MEDICINES:", medicineData);
+      console.log("OTHER ITEMS:", otherItemData);
+      console.log("BATCHES:", batchData);
+
+      // Only active medicines are available for billing.
+      setMedicines(
+        medicineData
+          .map((medicine) => ({
+            ...medicine,
+            medicineId: Number(
+              medicine.medicineId ?? medicine.MedicineId
+            ),
+            name: medicine.name ?? medicine.Name ?? "",
+            strength: medicine.strength ?? medicine.Strength ?? "",
+            isActive:
+              medicine.isActive ?? medicine.IsActive ?? false,
+          }))
+          .filter((medicine) => medicine.isActive === true)
+      );
+
+      setOtherItems(
+        otherItemData.map((item) => ({
+          ...item,
+          otherItemId: Number(
+            item.otherItemId ?? item.OtherItemId
+          ),
+          itemName: item.itemName ?? item.ItemName ?? "",
+          quantity: Number(
+            item.quantity ?? item.Quantity ?? 0
+          ),
+          sellingPrice: Number(
+            item.sellingPrice ?? item.SellingPrice ?? 0
+          ),
+          status: item.status ?? item.Status ?? false,
+        }))
+      );
+
+      setBatches(
+        batchData.map((batch) => ({
+          ...batch,
+          batchId: Number(batch.batchId ?? batch.BatchId),
+          medicineId: Number(
+            batch.medicineId ?? batch.MedicineId
+          ),
+          quantity: Number(
+            batch.quantity ?? batch.Quantity ?? 0
+          ),
+          sellingPrice: Number(
+            batch.sellingPrice ?? batch.SellingPrice ?? 0
+          ),
+          expiryDate: batch.expiryDate ?? batch.ExpiryDate,
+          batchName: batch.batchName ?? batch.BatchName ?? "",
+          isActive: batch.isActive ?? batch.IsActive ?? false,
+        }))
+      );
     } catch (error) {
       console.error("Failed to load sale data:", error);
+      console.error("Server response:", error.response?.data);
 
       alert(
         error.response?.data?.message ||
+          error.response?.data?.title ||
           "Failed to load medicines and items."
       );
     } finally {
@@ -51,65 +114,79 @@ function NewSale({ onBack, onSaleCreated }) {
     }
   };
 
-  // GET AVAILABLE BATCH FOR MEDICINE
+  // GET AVAILABLE ACTIVE BATCH FOR ACTIVE MEDICINE
   const getAvailableBatch = (medicineId) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     const medicineBatches = batches
-      .filter(
-        (batch) =>
-          batch.medicineId === Number(medicineId) &&
-          Number(batch.quantity) > 0
-      )
-      .sort(
-        (a, b) =>
-          new Date(a.expiryDate) -
-          new Date(b.expiryDate)
-      );
+      .filter((batch) => {
+        if (
+          Number(batch.medicineId) !== Number(medicineId) ||
+          Number(batch.quantity) <= 0 ||
+          batch.isActive !== true
+        ) {
+          return false;
+        }
+
+        if (batch.expiryDate) {
+          const expiryDate = new Date(batch.expiryDate);
+          expiryDate.setHours(0, 0, 0, 0);
+
+          if (expiryDate < today) {
+            return false;
+          }
+        }
+
+        return true;
+      })
+      .sort((a, b) => {
+        const dateA = a.expiryDate
+          ? new Date(a.expiryDate).getTime()
+          : Infinity;
+
+        const dateB = b.expiryDate
+          ? new Date(b.expiryDate).getTime()
+          : Infinity;
+
+        return dateA - dateB;
+      });
 
     return medicineBatches.length > 0
       ? medicineBatches[0]
       : null;
   };
 
-  // SELECTED ITEM
+  // SELECTED ITEMS
   const selectedMedicine = medicines.find(
     (medicine) =>
-      medicine.medicineId === Number(selectedId)
+      Number(medicine.medicineId) === Number(selectedId)
   );
 
   const selectedOtherItem = otherItems.find(
     (item) =>
-      item.otherItemId === Number(selectedId)
+      Number(item.otherItemId) === Number(selectedId)
   );
 
-  // GET PRICE
-  const getMedicinePrice = (medicineId) => {
-    const batch = getAvailableBatch(medicineId);
+  // CURRENCY
+  const formatCurrency = (amount) =>
+    `Rs. ${Number(amount || 0).toLocaleString("en-LK", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
 
-    return batch
-      ? Number(batch.sellingPrice || 0)
-      : 0;
-  };
-
-  const getOtherItemPrice = (itemId) => {
-    const item = otherItems.find(
-      (otherItem) =>
-        otherItem.otherItemId === Number(itemId)
-    );
-
-    return item
-      ? Number(item.sellingPrice || 0)
-      : 0;
-  };
-
-  // ADD TO BILL
+  // ADD ITEM TO BILL
   const addToBill = () => {
     if (!selectedId) {
       alert("Please select an item.");
       return;
     }
 
-    if (Number(quantity) <= 0) {
-      alert("Quantity must be greater than zero.");
+    if (
+      !Number.isInteger(Number(quantity)) ||
+      Number(quantity) <= 0
+    ) {
+      alert("Quantity must be a positive whole number.");
       return;
     }
 
@@ -117,20 +194,44 @@ function NewSale({ onBack, onSaleCreated }) {
       const medicine = selectedMedicine;
 
       if (!medicine) {
-        alert("Medicine not found.");
+        alert("Medicine not found or inactive.");
+        return;
+      }
+
+      // Recheck active status before adding.
+      if (medicine.isActive !== true) {
+        alert("Inactive medicines cannot be added to a bill.");
         return;
       }
 
       const batch = getAvailableBatch(medicine.medicineId);
 
       if (!batch) {
-        alert(`No available stock found for ${medicine.name}.`);
+        alert(
+          `No active, unexpired batch with available stock found for ${medicine.name}.`
+        );
         return;
       }
 
-      if (Number(quantity) > Number(batch.quantity)) {
+      const alreadyInCart = cart
+        .filter(
+          (item) =>
+            item.type === "medicine" &&
+            Number(item.batchId) === Number(batch.batchId)
+        )
+        .reduce(
+          (total, item) => total + Number(item.quantity),
+          0
+        );
+
+      if (
+        Number(quantity) + alreadyInCart >
+        Number(batch.quantity)
+      ) {
         alert(
-          `Insufficient stock for ${medicine.name}.\nAvailable stock: ${batch.quantity}`
+          `Insufficient stock for ${medicine.name}.\nAvailable stock: ${
+            Number(batch.quantity) - alreadyInCart
+          }`
         );
         return;
       }
@@ -144,8 +245,8 @@ function NewSale({ onBack, onSaleCreated }) {
         return;
       }
 
-      setCart([
-        ...cart,
+      setCart((previousCart) => [
+        ...previousCart,
         {
           type: "medicine",
           id: medicine.medicineId,
@@ -165,9 +266,31 @@ function NewSale({ onBack, onSaleCreated }) {
         return;
       }
 
-      if (Number(quantity) > Number(item.quantity || 0)) {
+      if (item.status !== true) {
+        alert("Inactive other items cannot be added to a bill.");
+        return;
+      }
+
+      const alreadyInCart = cart
+        .filter(
+          (cartItem) =>
+            cartItem.type === "otherItem" &&
+            Number(cartItem.id) === Number(item.otherItemId)
+        )
+        .reduce(
+          (total, cartItem) =>
+            total + Number(cartItem.quantity),
+          0
+        );
+
+      if (
+        Number(quantity) + alreadyInCart >
+        Number(item.quantity || 0)
+      ) {
         alert(
-          `Insufficient stock for ${item.itemName}.\nAvailable stock: ${item.quantity}`
+          `Insufficient stock for ${item.itemName}.\nAvailable stock: ${
+            Number(item.quantity || 0) - alreadyInCart
+          }`
         );
         return;
       }
@@ -181,8 +304,8 @@ function NewSale({ onBack, onSaleCreated }) {
         return;
       }
 
-      setCart([
-        ...cart,
+      setCart((previousCart) => [
+        ...previousCart,
         {
           type: "otherItem",
           id: item.otherItemId,
@@ -197,14 +320,14 @@ function NewSale({ onBack, onSaleCreated }) {
     setQuantity(1);
   };
 
-  // REMOVE FROM BILL
+  // REMOVE ITEM FROM BILL
   const removeFromBill = (index) => {
-    setCart(
-      cart.filter((_, cartIndex) => cartIndex !== index)
+    setCart((previousCart) =>
+      previousCart.filter((_, cartIndex) => cartIndex !== index)
     );
   };
 
-  // TOTAL
+  // TOTAL AMOUNT
   const totalAmount = cart.reduce(
     (total, item) =>
       total + Number(item.price) * Number(item.quantity),
@@ -223,65 +346,89 @@ function NewSale({ onBack, onSaleCreated }) {
       return;
     }
 
+    // Ensure medicines in the cart are still active.
+    for (const item of cart) {
+      if (item.type === "medicine") {
+        const medicine = medicines.find(
+          (currentMedicine) =>
+            Number(currentMedicine.medicineId) === Number(item.id)
+        );
+
+        if (!medicine || medicine.isActive !== true) {
+          alert(
+            `${item.name} is inactive and cannot be billed. Remove it from the bill and refresh the page.`
+          );
+          return;
+        }
+
+        const batch = batches.find(
+          (currentBatch) =>
+            Number(currentBatch.batchId) === Number(item.batchId)
+        );
+
+        if (
+          !batch ||
+          batch.isActive !== true ||
+          Number(batch.quantity) <= 0
+        ) {
+          alert(
+            `${item.name} batch is inactive or unavailable. Remove it from the bill and refresh the page.`
+          );
+          return;
+        }
+      }
+    }
+
     try {
       setCreatingSale(true);
 
-      
-
-const storedUser = localStorage.getItem("pharmaTrackUser");
-const loggedInUser = storedUser ? JSON.parse(storedUser) : null;
-
-const userId = Number(
-  loggedInUser?.userId ?? loggedInUser?.UserId
-);
-
-if (!Number.isInteger(userId) || userId <= 0) {
-  alert("Unable to identify the logged-in user. Please log in again.");
-  return;
-}
-
-
-if (!Number.isInteger(userId) || userId <= 0) {
-  alert(
-    "Unable to identify the logged-in user. Please log in again."
-  );
-  return;
-}
-
-
-      const saleItems = cart.map((item) => {
-        if (item.type === "medicine") {
-          return {
-            batchId: item.batchId,
-            otherItemId: null,
-            quantity: Number(item.quantity),
-          };
-        }
-
-        return {
-          batchId: null,
-          otherItemId: item.id,
-          quantity: Number(item.quantity),
-        };
-      });
+      const saleItems = cart.map((item) => ({
+        BatchId: item.type === "medicine" ? item.batchId : null,
+        OtherItemId: item.type === "otherItem" ? item.id : null,
+        Quantity: Number(item.quantity),
+      }));
 
       const saleData = {
-  userId: userId,
-  paymentMethod: paymentMethod,
-  items: saleItems,
-};
+        SaleDate: new Date().toISOString(),
+        PaymentMethod: paymentMethod,
+        SaleItem: saleItems,
+      };
 
-      console.log("Creating sale:", saleData);
+      console.log(
+        "SALE REQUEST DATA:",
+        JSON.stringify(saleData, null, 2)
+      );
 
       const response = await api.post("/Sale", saleData);
 
-      const createdSaleId = response.data.saleId;
-      const createdTotal = response.data.totalAmount;
+      console.log("CREATE SALE RESPONSE:", response.data);
+
+      const createdSaleId =
+        response.data?.SaleId ??
+        response.data?.saleId ??
+        response.data?.Id ??
+        response.data?.id;
+
+      const createdTotal =
+        response.data?.TotalAmount ??
+        response.data?.totalAmount ??
+        totalAmount;
+
+      if (
+        createdSaleId === undefined ||
+        createdSaleId === null ||
+        createdSaleId === ""
+      ) {
+        alert(
+          "Sale response eke Sale ID eka hambune naha. Browser Console eka check karanna."
+        );
+        return;
+      }
 
       alert(
-        `Sale created successfully!\n\nSale ID: ${createdSaleId}\nTotal: Rs. ${Number(
+        `Sale created successfully!\n\nSale ID: ${createdSaleId}\nTotal: ${formatCurrency(
           createdTotal
-        ).toFixed(2)}`
+        )}`
       );
 
       setCart([]);
@@ -295,24 +442,21 @@ if (!Number.isInteger(userId) || userId <= 0) {
       }
     } catch (error) {
       console.error("Failed to create sale:", error);
-      console.error("Server response:", error.response?.data);
+      console.error("HTTP STATUS:", error.response?.status);
+      console.error(
+        "SERVER ERROR DETAILS:",
+        JSON.stringify(error.response?.data, null, 2)
+      );
 
       alert(
         error.response?.data?.message ||
           error.response?.data?.title ||
-          "Failed to create sale. Please check the server response."
+          error.response?.data?.error ||
+          "Failed to create sale. Please check the browser Console."
       );
     } finally {
       setCreatingSale(false);
     }
-  };
-
-  // CURRENCY
-  const formatCurrency = (amount) => {
-    return `Rs. ${Number(amount || 0).toLocaleString("en-LK", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
   };
 
   // UI
@@ -324,7 +468,11 @@ if (!Number.isInteger(userId) || userId <= 0) {
           <p>Create a new pharmacy bill</p>
         </div>
 
-        <button className="add-medicine-btn" onClick={onBack}>
+        <button
+          className="add-medicine-btn"
+          onClick={onBack}
+          type="button"
+        >
           ← Back to Sales
         </button>
       </div>
@@ -357,17 +505,11 @@ if (!Number.isInteger(userId) || userId <= 0) {
 
             <select
               value={selectedType}
-              onChange={(e) => {
-                setSelectedType(e.target.value);
+              onChange={(event) => {
+                setSelectedType(event.target.value);
                 setSelectedId("");
               }}
-              style={{
-                width: "100%",
-                padding: "12px",
-                borderRadius: "8px",
-                border: "1px solid #ddd",
-                marginTop: "7px",
-              }}
+              style={selectStyle}
             >
               <option value="medicine">Medicine</option>
               <option value="otherItem">Other Item</option>
@@ -379,15 +521,11 @@ if (!Number.isInteger(userId) || userId <= 0) {
 
             <select
               value={selectedId}
-              onChange={(e) => setSelectedId(e.target.value)}
+              onChange={(event) =>
+                setSelectedId(event.target.value)
+              }
               disabled={loading}
-              style={{
-                width: "100%",
-                padding: "12px",
-                borderRadius: "8px",
-                border: "1px solid #ddd",
-                marginTop: "7px",
-              }}
+              style={selectStyle}
             >
               <option value="">
                 {loading ? "Loading items..." : "Select Item"}
@@ -411,7 +549,7 @@ if (!Number.isInteger(userId) || userId <= 0) {
                           : ""}
                         {batch
                           ? ` - ${formatCurrency(batch.sellingPrice)}`
-                          : " - Out of Stock"}
+                          : " - No Available Stock"}
                       </option>
                     );
                   })
@@ -419,7 +557,10 @@ if (!Number.isInteger(userId) || userId <= 0) {
                     <option
                       key={item.otherItemId}
                       value={item.otherItemId}
-                      disabled={Number(item.quantity || 0) <= 0}
+                      disabled={
+                        item.status !== true ||
+                        Number(item.quantity || 0) <= 0
+                      }
                     >
                       {item.itemName}
                       {Number(item.quantity || 0) > 0
@@ -436,15 +577,12 @@ if (!Number.isInteger(userId) || userId <= 0) {
             <input
               type="number"
               min="1"
+              step="1"
               value={quantity}
-              onChange={(e) => setQuantity(Number(e.target.value))}
-              style={{
-                width: "100%",
-                padding: "12px",
-                borderRadius: "8px",
-                border: "1px solid #ddd",
-                marginTop: "7px",
-              }}
+              onChange={(event) =>
+                setQuantity(event.target.value)
+              }
+              style={inputStyle}
             />
           </div>
 
@@ -452,13 +590,17 @@ if (!Number.isInteger(userId) || userId <= 0) {
             className="add-medicine-btn"
             onClick={addToBill}
             disabled={loading}
+            type="button"
           >
             + Add to Bill
           </button>
         </div>
       </div>
 
-      <div className="stock-section-card" style={{ marginTop: "25px" }}>
+      <div
+        className="stock-section-card"
+        style={{ marginTop: "25px" }}
+      >
         <div className="stock-section-header">
           <div className="stock-section-title">
             <div className="stock-section-icon medicine-section-icon">
@@ -490,14 +632,17 @@ if (!Number.isInteger(userId) || userId <= 0) {
                 <tr>
                   <td
                     colSpan="6"
-                    style={{ textAlign: "center", padding: "40px" }}
+                    style={{
+                      textAlign: "center",
+                      padding: "40px",
+                    }}
                   >
                     No items added to the bill.
                   </td>
                 </tr>
               ) : (
                 cart.map((item, index) => (
-                  <tr key={index}>
+                  <tr key={`${item.type}-${item.id}-${index}`}>
                     <td>
                       <strong>{item.name}</strong>
 
@@ -510,6 +655,18 @@ if (!Number.isInteger(userId) || userId <= 0) {
                           }}
                         >
                           {item.strength}
+                        </div>
+                      )}
+
+                      {item.batchName && (
+                        <div
+                          style={{
+                            fontSize: "12px",
+                            color: "#777",
+                            marginTop: "3px",
+                          }}
+                        >
+                          Batch: {item.batchName}
                         </div>
                       )}
                     </td>
@@ -525,13 +682,16 @@ if (!Number.isInteger(userId) || userId <= 0) {
 
                     <td>
                       <strong>
-                        {formatCurrency(item.price * item.quantity)}
+                        {formatCurrency(
+                          item.price * item.quantity
+                        )}
                       </strong>
                     </td>
 
                     <td>
                       <button
                         onClick={() => removeFromBill(index)}
+                        type="button"
                         style={{
                           border: "none",
                           background: "#ffe5e5",
@@ -567,7 +727,9 @@ if (!Number.isInteger(userId) || userId <= 0) {
 
             <select
               value={paymentMethod}
-              onChange={(e) => setPaymentMethod(e.target.value)}
+              onChange={(event) =>
+                setPaymentMethod(event.target.value)
+              }
               style={{
                 marginLeft: "10px",
                 padding: "10px 15px",
@@ -581,7 +743,12 @@ if (!Number.isInteger(userId) || userId <= 0) {
           </div>
 
           <div>
-            <span style={{ fontSize: "16px", marginRight: "10px" }}>
+            <span
+              style={{
+                fontSize: "16px",
+                marginRight: "10px",
+              }}
+            >
               Total:
             </span>
 
@@ -594,6 +761,7 @@ if (!Number.isInteger(userId) || userId <= 0) {
             className="add-medicine-btn"
             onClick={createSale}
             disabled={creatingSale || cart.length === 0}
+            type="button"
           >
             {creatingSale ? "Creating..." : "✓ Create Sale"}
           </button>
@@ -602,5 +770,22 @@ if (!Number.isInteger(userId) || userId <= 0) {
     </div>
   );
 }
+
+const selectStyle = {
+  width: "100%",
+  padding: "12px",
+  borderRadius: "8px",
+  border: "1px solid #ddd",
+  marginTop: "7px",
+};
+
+const inputStyle = {
+  width: "100%",
+  padding: "12px",
+  borderRadius: "8px",
+  border: "1px solid #ddd",
+  marginTop: "7px",
+  boxSizing: "border-box",
+};
 
 export default NewSale;

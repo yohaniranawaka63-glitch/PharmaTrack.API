@@ -1,5 +1,21 @@
-
 import { useEffect, useState } from "react";
+import {
+  Users,
+  UserCheck,
+  UserX,
+  ShieldCheck,
+  Search,
+  Plus,
+  LogOut,
+  X,
+  Pencil,
+  Trash2,
+  Clock,
+  Mail,
+  Check,
+  Save,
+  Ban,
+} from "lucide-react";
 import api from "./api";
 import "./User.css";
 
@@ -12,8 +28,37 @@ const emptyForm = {
   status: true,
 };
 
+function getField(obj, ...keys) {
+  for (const key of keys) {
+    if (obj?.[key] !== undefined && obj?.[key] !== null) {
+      return obj[key];
+    }
+  }
+  return undefined;
+}
+
 function getUserEmail(user) {
-  return user?.email ?? user?.Email ?? "";
+  return getField(user, "email", "Email") ?? "";
+}
+
+function normalizeUser(user) {
+  return {
+    ...user,
+    userId: getField(user, "userId", "UserId", "id", "Id"),
+    name: getField(user, "name", "Name") ?? "",
+    userName: getField(user, "userName", "UserName", "username", "Username") ?? "",
+    email: getUserEmail(user),
+    roleId: getField(user, "roleId", "RoleId"),
+    status: getField(user, "status", "Status", "isActive", "IsActive") ?? false,
+  };
+}
+
+function normalizeRole(role) {
+  return {
+    ...role,
+    roleId: getField(role, "roleId", "RoleId", "id", "Id"),
+    roleName: getField(role, "roleName", "RoleName", "name", "Name") ?? "",
+  };
 }
 
 function User() {
@@ -30,18 +75,17 @@ function User() {
   // LOAD USERS
   const loadUsers = async () => {
     try {
+      setLoading(true);
+
       const response = await api.get("/User");
 
       console.log("Users API response:", response.data);
 
-      const data = Array.isArray(response.data)
-        ? response.data.map((user) => ({
-            ...user,
-            email: getUserEmail(user),
-          }))
-        : [];
+      const rawUsers = Array.isArray(response.data)
+        ? response.data
+        : response.data?.data ?? response.data?.items ?? [];
 
-      setUsers(data);
+      setUsers(rawUsers.map(normalizeUser));
     } catch (error) {
       console.error("Error loading users:", error);
       alert("Failed to load users. Please check the API.");
@@ -54,7 +98,12 @@ function User() {
   const loadRoles = async () => {
     try {
       const response = await api.get("/Role");
-      setRoles(Array.isArray(response.data) ? response.data : []);
+
+      const rawRoles = Array.isArray(response.data)
+        ? response.data
+        : response.data?.data ?? response.data?.items ?? [];
+
+      setRoles(rawRoles.map(normalizeRole));
     } catch (error) {
       console.error("Error loading roles:", error);
       alert("Failed to load roles.");
@@ -134,18 +183,18 @@ function User() {
       return false;
     }
 
-    if (!editingId && !formData.password.trim()) {
+    if (editingId == null && !formData.password.trim()) {
       alert("Please enter a password.");
       return false;
     }
 
-    if (!editingId && formData.password.length < 6) {
+    if (editingId == null && formData.password.length < 6) {
       alert("Password must be at least 6 characters.");
       return false;
     }
 
     if (
-      editingId &&
+      editingId != null &&
       formData.password.trim() &&
       formData.password.length < 6
     ) {
@@ -160,7 +209,6 @@ function User() {
 
     return true;
   };
-
   // SAVE / UPDATE USER
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -179,43 +227,19 @@ function User() {
         status: formData.status,
       };
 
-      let response;
+      console.log("Submitting user data:", {
+        ...data,
+        password: data.password ? "[HIDDEN]" : "",
+      });
 
-      if (editingId) {
-        response = await api.put(`/User/${editingId}`, data);
+      if (editingId != null) {
+        await api.put(`/User/${editingId}`, data);
       } else {
-        response = await api.post("/User", data);
-      }
-
-      // DEBUG: Check the exact data returned by the API
-      const responseEmail = getUserEmail(response.data);
-
-      console.log("Submitted email:", data.email);
-      console.log(
-        "Saved user response:",
-        JSON.stringify(response.data, null, 2)
-      );
-      console.log("Email returned by API:", responseEmail);
-
-      if (
-        responseEmail &&
-        responseEmail.trim().toLowerCase() !== data.email
-      ) {
-        console.warn("Returned email differs from submitted email.", {
-          submittedEmail: data.email,
-          returnedEmail: responseEmail,
-        });
-      }
-
-      if (!responseEmail) {
-        console.warn(
-          "The API save response did not contain an email field. " +
-            "Check the UserController response and GET /api/User."
-        );
+        await api.post("/User", data);
       }
 
       alert(
-        editingId
+        editingId != null
           ? "User updated successfully."
           : "User created successfully."
       );
@@ -227,25 +251,33 @@ function User() {
       await loadUsers();
     } catch (error) {
       console.error("Error saving user:", error);
-      console.error("API error response:", error.response?.data);
 
-      if (error.response?.data?.message) {
-        alert(error.response.data.message);
-      } else {
-        alert("Failed to save user. Please check the API connection.");
-      }
+      const errorData = error.response?.data;
+
+      console.log("API status:", error.response?.status);
+      console.log("API error response:", errorData);
+
+      const message =
+        errorData?.message ||
+        errorData?.error ||
+        "Failed to save user. Check the backend API.";
+
+      alert(message);
     } finally {
       setSaving(false);
     }
   };
-
   // DELETE USER
   const handleDelete = async (user) => {
     if (deletingId !== null) return;
 
+    if (user.userId == null) {
+      alert("User ID not found.");
+      return;
+    }
+
     const confirmDelete = window.confirm(
-      `Are you sure you want to delete "${user.name}"?\n\n` +
-        "This action cannot be undone."
+      `Are you sure you want to delete "${user.name}"?\n\nThis action cannot be undone.`
     );
 
     if (!confirmDelete) return;
@@ -278,21 +310,30 @@ function User() {
     sessionStorage.removeItem("pharmaTrackUser");
     window.location.reload();
   };
+const getRoleName = (roleId) => {
+  const role = roles.find(
+    (item) => Number(item.roleId) === Number(roleId)
+  );
 
-  // GET ROLE NAME
-  const getRoleName = (roleId) => {
-    const role = roles.find(
-      (role) => Number(role.roleId) === Number(roleId)
-    );
+  if (role?.roleName) return role.roleName;
 
-    return role ? role.roleName : "Unknown";
+  const roleNames = {
+    1: "Admin",
+    2: "Pharmacist",
+    3: "Cashier",
   };
+
+  return roleNames[Number(roleId)] ?? "Unknown";
+};
 
   // ROLE CSS CLASS
   const getRoleClass = (roleName) => {
-    if (roleName === "Admin") return "admin";
-    if (roleName === "Pharmacist") return "pharmacist";
-    if (roleName === "Cashier") return "cashier";
+    const role = String(roleName).toLowerCase();
+
+    if (role === "admin") return "admin";
+    if (role === "pharmacist") return "pharmacist";
+    if (role === "cashier") return "cashier";
+
     return "default";
   };
 
@@ -313,22 +354,30 @@ function User() {
   };
 
   // FILTER USERS
+  const searchText = search.trim().toLowerCase();
+
   const filteredUsers = users.filter((user) => {
     const roleName = getRoleName(user.roleId);
 
-    const searchText = `
-      ${user.name || ""}
-      ${user.userName || ""}
-      ${getUserEmail(user)}
-      ${roleName}
-    `.toLowerCase();
+    const searchableText = [
+      user.userId,
+      user.name,
+      user.userName,
+      user.email,
+      user.roleId,
+      roleName,
+      user.status ? "active" : "inactive",
+    ]
+      .map((value) => String(value ?? ""))
+      .join(" ")
+      .toLowerCase();
 
-    return searchText.includes(search.toLowerCase());
+    return searchableText.includes(searchText);
   });
 
   // SUMMARY COUNTS
-  const activeUsers = users.filter((user) => user.status).length;
-  const inactiveUsers = users.filter((user) => !user.status).length;
+  const activeUsers = users.filter((user) => Boolean(user.status)).length;
+  const inactiveUsers = users.length - activeUsers;
 
   return (
     <div className="users-page">
@@ -349,6 +398,10 @@ function User() {
             type="button"
             onClick={handleLogout}
             style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
               border: "none",
               background: "#dc3545",
               color: "#fff",
@@ -358,7 +411,8 @@ function User() {
               fontWeight: "600",
             }}
           >
-            ↪ Logout
+            <LogOut size={18} />
+            Logout
           </button>
 
           <button
@@ -366,8 +420,15 @@ function User() {
             className="users-add-button"
             onClick={openAddForm}
             disabled={saving}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+            }}
           >
-            + Add User
+            <Plus size={18} />
+            Add User
           </button>
         </div>
       </div>
@@ -375,7 +436,9 @@ function User() {
       {/* SUMMARY */}
       <div className="users-summary">
         <div className="user-summary-box green">
-          <div className="summary-icon">👥</div>
+          <div className="summary-icon">
+            <Users size={24} />
+          </div>
           <div>
             <span>Total Users</span>
             <strong>{users.length}</strong>
@@ -384,7 +447,9 @@ function User() {
         </div>
 
         <div className="user-summary-box blue">
-          <div className="summary-icon">✓</div>
+          <div className="summary-icon">
+            <UserCheck size={24} />
+          </div>
           <div>
             <span>Active Users</span>
             <strong>{activeUsers}</strong>
@@ -393,7 +458,9 @@ function User() {
         </div>
 
         <div className="user-summary-box orange">
-          <div className="summary-icon">⏸</div>
+          <div className="summary-icon">
+            <UserX size={24} />
+          </div>
           <div>
             <span>Inactive Users</span>
             <strong>{inactiveUsers}</strong>
@@ -402,7 +469,9 @@ function User() {
         </div>
 
         <div className="user-summary-box purple">
-          <div className="summary-icon">🛡</div>
+          <div className="summary-icon">
+            <ShieldCheck size={24} />
+          </div>
           <div>
             <span>Roles</span>
             <strong>{roles.length}</strong>
@@ -414,10 +483,11 @@ function User() {
       {/* SEARCH */}
       <div className="users-search-section">
         <div className="users-search">
-          <span>🔍</span>
+          <Search size={18} />
+
           <input
             type="text"
-            placeholder="Search user, username or email..."
+            placeholder="Search ID, user, username, email or role..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -427,8 +497,10 @@ function User() {
               type="button"
               onClick={() => setSearch("")}
               className="users-clear-search"
+              aria-label="Clear search"
+              title="Clear search"
             >
-              ×
+              <X size={17} />
             </button>
           )}
         </div>
@@ -450,7 +522,7 @@ function User() {
           <table className="users-table">
             <thead>
               <tr>
-                <th>ID</th>
+                <th>User ID</th>
                 <th>User</th>
                 <th>Username</th>
                 <th>Email</th>
@@ -463,20 +535,25 @@ function User() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="no-users">
-                    <div>⏳</div>
+                  <td colSpan={8} className="no-users">
+                    <div>
+                      <Clock size={28} />
+                    </div>
                     <strong>Loading users...</strong>
                   </td>
                 </tr>
               ) : filteredUsers.length > 0 ? (
-                filteredUsers.map((user) => {
+                filteredUsers.map((user, index) => {
                   const roleName = getRoleName(user.roleId);
                   const email = getUserEmail(user);
 
                   return (
-                    <tr key={user.userId}>
+                    <tr key={user.userId ?? index}>
+
                       <td>
-                        <span className="user-id">#{user.userId}</span>
+                        <span className="user-id">
+                          {user.userId ?? "-"}
+                        </span>
                       </td>
 
                       <td>
@@ -485,19 +562,29 @@ function User() {
                             {getInitials(user.name)}
                           </div>
                           <div>
-                            <strong>{user.name}</strong>
-                            <small>User ID #{user.userId}</small>
+                            <strong>{user.name || "Name unavailable"}</strong>
                           </div>
                         </div>
                       </td>
 
                       <td>
                         <span className="username">
-                          @{user.userName}
+                          {user.userName ? `@${user.userName}` : "-"}
                         </span>
                       </td>
 
-                      <td>{email || "Not added"}</td>
+                      <td>
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "7px",
+                          }}
+                        >
+                          <Mail size={15} color="#64748b" />
+                          {email || "Not added"}
+                        </span>
+                      </td>
 
                       <td>
                         <span
@@ -526,20 +613,51 @@ function User() {
                             type="button"
                             className="edit-user-button"
                             onClick={() => openEditForm(user)}
-                            disabled={deletingId === user.userId}
+                            disabled={
+                              deletingId === user.userId ||
+                              user.userId == null
+                            }
+                            title="Edit User"
+                            aria-label="Edit User"
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: "6px",
+                            }}
                           >
-                            ✎ Edit
+                            <Pencil size={15} />
+                            Edit
                           </button>
 
                           <button
                             type="button"
                             className="delete-user-button"
                             onClick={() => handleDelete(user)}
-                            disabled={deletingId === user.userId}
+                            disabled={
+                              deletingId === user.userId ||
+                              user.userId == null
+                            }
+                            title="Delete User"
+                            aria-label="Delete User"
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: "6px",
+                            }}
                           >
-                            {deletingId === user.userId
-                              ? "Deleting..."
-                              : "🗑 Delete"}
+                            {deletingId === user.userId ? (
+                              <>
+                                <Clock size={15} />
+                                Deleting...
+                              </>
+                            ) : (
+                              <>
+                                <Trash2 size={15} />
+                                Delete
+                              </>
+                            )}
                           </button>
                         </div>
                       </td>
@@ -548,8 +666,10 @@ function User() {
                 })
               ) : (
                 <tr>
-                  <td colSpan={7} className="no-users">
-                    <div>👤</div>
+                  <td colSpan={8} className="no-users">
+                    <div>
+                      <Users size={32} />
+                    </div>
                     <strong>No users found</strong>
                     <p>
                       {search
@@ -570,9 +690,11 @@ function User() {
           <div className="users-modal">
             <div className="users-modal-header">
               <div>
-                <h2>{editingId ? "Edit User" : "Add New User"}</h2>
+                <h2>
+                  {editingId != null ? "Edit User" : "Add New User"}
+                </h2>
                 <p>
-                  {editingId
+                  {editingId != null
                     ? "Update user account details"
                     : "Create a new pharmacy system user"}
                 </p>
@@ -583,8 +705,10 @@ function User() {
                 onClick={closeForm}
                 className="users-modal-close"
                 disabled={saving}
+                aria-label="Close form"
+                title="Close"
               >
-                ×
+                <X size={20} />
               </button>
             </div>
 
@@ -638,22 +762,22 @@ function User() {
                     value={formData.password}
                     onChange={handleInputChange}
                     placeholder={
-                      editingId
+                      editingId != null
                         ? "New password (optional)"
                         : "Enter password"
                     }
                     disabled={saving}
-                    required={!editingId}
+                    required={editingId == null}
                     minLength={6}
                   />
 
-                  {editingId && (
+                  {editingId != null && (
                     <small>
                       Leave empty to keep the current password.
                     </small>
                   )}
 
-                  {!editingId && (
+                  {editingId == null && (
                     <small>Minimum 6 characters.</small>
                   )}
                 </div>
@@ -668,8 +792,12 @@ function User() {
                     required
                   >
                     <option value="">Select Role</option>
-                    {roles.map((role) => (
-                      <option key={role.roleId} value={role.roleId}>
+
+                    {roles.map((role, index) => (
+                      <option
+                        key={role.roleId ?? index}
+                        value={role.roleId}
+                      >
                         {role.roleName}
                       </option>
                     ))}
@@ -678,15 +806,17 @@ function User() {
 
                 <div className="users-form-group status-group">
                   <label>Account Status</label>
+
                   <label className="status-toggle">
                     <input
                       type="checkbox"
                       name="status"
-                      checked={formData.status}
+                      checked={Boolean(formData.status)}
                       onChange={handleInputChange}
                       disabled={saving}
                     />
                     <span></span>
+
                     <div>
                       <strong>
                         {formData.status ? "Active User" : "Inactive User"}
@@ -707,7 +837,14 @@ function User() {
                   onClick={closeForm}
                   className="users-cancel"
                   disabled={saving}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "7px",
+                  }}
                 >
+                  <Ban size={16} />
                   Cancel
                 </button>
 
@@ -715,12 +852,29 @@ function User() {
                   type="submit"
                   className="users-save"
                   disabled={saving}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "7px",
+                  }}
                 >
-                  {saving
-                    ? "Saving..."
-                    : editingId
-                    ? "✓ Update User"
-                    : "+ Save User"}
+                  {saving ? (
+                    <>
+                      <Clock size={16} />
+                      Saving...
+                    </>
+                  ) : editingId != null ? (
+                    <>
+                      <Check size={16} />
+                      Update User
+                    </>
+                  ) : (
+                    <>
+                      <Save size={16} />
+                      Save User
+                    </>
+                  )}
                 </button>
               </div>
             </form>

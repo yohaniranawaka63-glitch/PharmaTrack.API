@@ -1,11 +1,10 @@
+
 import { useState } from "react";
 import api from "./api";
 import "./Login.css";
 
 function ResetPassword() {
-const searchParams = new URLSearchParams(window.location.search);
-
-  const email = searchParams.get("email") || "";
+  const searchParams = new URLSearchParams(window.location.search);
   const token = searchParams.get("token") || "";
 
   const [newPassword, setNewPassword] = useState("");
@@ -20,15 +19,15 @@ const searchParams = new URLSearchParams(window.location.search);
     setMessage("");
     setError("");
 
-    if (!email || !token) {
+    if (!token) {
       setError(
-        "Reset link eka hari naha. Aluth reset link ekak request karanna."
+        "Reset link eka invalid. Aluth reset link ekak request karanna."
       );
       return;
     }
 
-    if (newPassword.length < 6) {
-      setError("Password eka at least characters 6k wath thiyenna oni.");
+    if (newPassword.length < 8) {
+      setError("Password eka at least characters 8k thiyenna oni.");
       return;
     }
 
@@ -41,7 +40,6 @@ const searchParams = new URLSearchParams(window.location.search);
 
     try {
       const response = await api.post("/PasswordReset/reset", {
-        email,
         token,
         newPassword,
       });
@@ -56,7 +54,7 @@ const searchParams = new URLSearchParams(window.location.search);
     } catch (err) {
       setError(
         err.response?.data?.message ||
-          "Password reset karanna bari una. Reset link eka expire wela athnam aluth link ekak request karanna."
+          "Password reset karanna bari una. Link eka expire wela athnam aluth link ekak request karanna."
       );
     } finally {
       setLoading(false);
@@ -67,31 +65,32 @@ const searchParams = new URLSearchParams(window.location.search);
     <div className="login-page">
       <div className="login-card">
         <h2>Reset Password</h2>
-
         <p>Oyage account ekata aluth password ekak set karanna.</p>
 
         <form onSubmit={handleSubmit}>
           <label htmlFor="new-password">New Password</label>
-
           <input
             id="new-password"
             type="password"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
             placeholder="Enter new password"
-            minLength={6}
+            autoComplete="new-password"
+            minLength={8}
+            maxLength={128}
             required
           />
 
           <label htmlFor="confirm-password">Confirm Password</label>
-
           <input
             id="confirm-password"
             type="password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             placeholder="Confirm new password"
-            minLength={6}
+            autoComplete="new-password"
+            minLength={8}
+            maxLength={128}
             required
           />
 

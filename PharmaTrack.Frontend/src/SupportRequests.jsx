@@ -1,13 +1,24 @@
+
 import { useEffect, useState } from "react";
-import axios from "axios";
+import {
+  LogOut,
+  RefreshCw,
+  UserRound,
+  Laptop,
+  Wrench,
+  Inbox,
+  Play,
+  CheckCircle,
+  Trash2,
+  LoaderCircle,
+} from "lucide-react";
+import api from "./api";
 import "./SupportRequests.css";
 
 function SupportRequests() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
-const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
 
   useEffect(() => {
     loadRequests();
@@ -18,11 +29,36 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
       setLoading(true);
       setError("");
 
-      const response = await axios.get(`${API}/SupportRequest`);
-      setRequests(response.data);
+      const response = await api.get("/SupportRequest");
+      const responseData = response.data;
+
+      const requestList = Array.isArray(responseData)
+        ? responseData
+        : Array.isArray(responseData?.data)
+          ? responseData.data
+          : [];
+
+      setRequests(
+        requestList.map((request) => ({
+          ...request,
+          requestId: request.RequestId ?? request.requestId,
+          userId: request.UserId ?? request.userId,
+          requestType: request.RequestType ?? request.requestType,
+          message: request.Message ?? request.message,
+          createdAt: request.CreatedAt ?? request.createdAt,
+          status: request.Status ?? request.status ?? "Pending",
+        }))
+      );
     } catch (err) {
-      console.error("Error loading support requests:", err);
-      setError("Failed to load support requests.");
+      console.error(
+        "Error loading support requests:",
+        err.response?.data || err.message
+      );
+
+      setError(
+        err.response?.data?.message ||
+          "Failed to load support requests."
+      );
     } finally {
       setLoading(false);
     }
@@ -30,19 +66,13 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
 
   const updateStatus = async (id, status) => {
     try {
-      await axios.put(
-        `${API}/SupportRequest/${id}/status`,
-        JSON.stringify(status),
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      loadRequests();
+      await api.put(`/SupportRequest/${id}/status`, { status });
+      await loadRequests();
     } catch (err) {
-      console.error("Error updating status:", err);
+      console.error(
+        "Error updating status:",
+        err.response?.data || err.message
+      );
 
       alert(
         err.response?.data?.message ||
@@ -59,13 +89,19 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
     if (!confirmDelete) return;
 
     try {
-      await axios.delete(`${API}/SupportRequest/${id}`);
+      await api.delete(`/SupportRequest/${id}`);
 
       setRequests((prev) =>
-        prev.filter((request) => request.requestId !== id)
+        prev.filter(
+          (request) =>
+            Number(request.requestId) !== Number(id)
+        )
       );
     } catch (err) {
-      console.error("Error deleting request:", err);
+      console.error(
+        "Error deleting request:",
+        err.response?.data || err.message
+      );
 
       alert(
         err.response?.data?.message ||
@@ -74,7 +110,6 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
     }
   };
 
-  // LOGOUT
   const handleLogout = () => {
     sessionStorage.removeItem("pharmaTrackUser");
     window.location.reload();
@@ -113,7 +148,6 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
 
   return (
     <div className="support-page">
-
       {/* HEADER */}
       <div className="support-header">
         <div>
@@ -135,6 +169,9 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
             type="button"
             onClick={handleLogout}
             style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "7px",
               border: "none",
               background: "#dc3545",
               color: "#fff",
@@ -144,7 +181,8 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
               fontWeight: "600",
             }}
           >
-            ↪ Logout
+            <LogOut size={17} />
+            Logout
           </button>
 
           <button
@@ -152,14 +190,14 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
             className="support-refresh-btn"
             onClick={loadRequests}
           >
-            ↻ Refresh
+            <RefreshCw size={16} />
+            Refresh
           </button>
         </div>
       </div>
 
       {/* SUMMARY CARDS */}
       <div className="support-summary">
-
         <div className="support-summary-card">
           <span className="summary-label">Total Requests</span>
           <strong>{requests.length}</strong>
@@ -179,7 +217,6 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
           <span className="summary-label">Resolved</span>
           <strong>{resolvedCount}</strong>
         </div>
-
       </div>
 
       {/* ERROR */}
@@ -191,7 +228,6 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
 
       {/* TABLE */}
       <div className="support-table-card">
-
         <div className="support-table-header">
           <div>
             <h2>Support Request List</h2>
@@ -204,12 +240,16 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
 
         {loading ? (
           <div className="support-empty">
-            <div className="support-loading-icon">⟳</div>
+            <div className="support-loading-icon">
+              <LoaderCircle size={30} className="support-spinner" />
+            </div>
             <h3>Loading requests...</h3>
           </div>
         ) : requests.length === 0 ? (
           <div className="support-empty">
-            <div className="support-empty-icon">📭</div>
+            <div className="support-empty-icon">
+              <Inbox size={36} strokeWidth={1.7} />
+            </div>
             <h3>No Support Requests</h3>
             <p>
               There are currently no support requests from
@@ -219,7 +259,6 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
         ) : (
           <div className="support-table-wrapper">
             <table className="support-table">
-
               <thead>
                 <tr>
                   <th>ID</th>
@@ -235,27 +274,21 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
               <tbody>
                 {requests.map((request) => (
                   <tr key={request.requestId}>
-
                     <td>
-                      <strong>
-                        #{request.requestId}
-                      </strong>
+                      <strong>#{request.requestId}</strong>
                     </td>
 
                     <td>
                       <div className="support-user">
                         <div className="support-user-avatar">
-                          👤
+                          <UserRound size={19} />
                         </div>
 
                         <div>
                           <strong>
                             User #{request.userId}
                           </strong>
-
-                          <span>
-                            Pharmacy User
-                          </span>
+                          <span>Pharmacy User</span>
                         </div>
                       </div>
                     </td>
@@ -263,16 +296,22 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
                     <td>
                       <span
                         className={
-                          request.requestType ===
-                          "Remote Support"
+                          request.requestType === "Remote Support"
                             ? "request-type remote-type"
                             : "request-type issue-type"
                         }
                       >
-                        {request.requestType ===
-                        "Remote Support"
-                          ? "💻 Remote Support"
-                          : "🛠️ System Issue"}
+                        {request.requestType === "Remote Support" ? (
+                          <>
+                            <Laptop size={15} />
+                            Remote Support
+                          </>
+                        ) : (
+                          <>
+                            <Wrench size={15} />
+                            System Issue
+                          </>
+                        )}
                       </span>
                     </td>
 
@@ -300,7 +339,6 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
 
                     <td>
                       <div className="request-actions">
-
                         {request.status === "Pending" && (
                           <button
                             type="button"
@@ -312,6 +350,7 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
                               )
                             }
                           >
+                            <Play size={14} />
                             Start
                           </button>
                         )}
@@ -327,13 +366,15 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
                               )
                             }
                           >
+                            <CheckCircle size={14} />
                             Resolve
                           </button>
                         )}
 
                         {request.status === "Resolved" && (
                           <span className="resolved-label">
-                            ✓ Completed
+                            <CheckCircle size={15} />
+                            Completed
                           </span>
                         )}
 
@@ -344,20 +385,17 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
                             deleteRequest(request.requestId)
                           }
                         >
+                          <Trash2 size={14} />
                           Delete
                         </button>
-
                       </div>
                     </td>
-
                   </tr>
                 ))}
               </tbody>
-
             </table>
           </div>
         )}
-
       </div>
     </div>
   );

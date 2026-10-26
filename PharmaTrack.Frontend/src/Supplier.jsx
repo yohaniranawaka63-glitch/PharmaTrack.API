@@ -1,5 +1,23 @@
-
 import { useEffect, useState } from "react";
+import {
+  Truck,
+  ClipboardList,
+  CheckCircle,
+  CirclePause,
+  Search,
+  Plus,
+  LogOut,
+  X,
+  Pencil,
+  Trash2,
+  Package,
+  Mail,
+  Phone,
+  MapPin,
+  Save,
+  Ban,
+  UserRoundCheck,
+} from "lucide-react";
 import api from "./api";
 import "./Supplier.css";
 
@@ -29,13 +47,23 @@ function Supplier() {
     try {
       const response = await api.get("/Supplier");
 
+      const supplierList = Array.isArray(response.data)
+        ? response.data
+        : [];
+
       setSuppliers(
-        Array.isArray(response.data) ? response.data : []
+        supplierList.map((supplier) => ({
+          ...supplier,
+          supplierId: supplier.supplierId ?? supplier.SupplierId,
+          supplierName: supplier.supplierName ?? supplier.SupplierName,
+          contactNumber: supplier.contactNumber ?? supplier.ContactNumber,
+          email: supplier.email ?? supplier.Email,
+          address: supplier.address ?? supplier.Address,
+          isActive: supplier.isActive ?? supplier.IsActive ?? true,
+        }))
       );
     } catch (error) {
       console.error("LOAD SUPPLIERS ERROR:", error);
-      console.error("STATUS:", error.response?.status);
-      console.error("DATA:", error.response?.data);
 
       alert(
         error.response?.data?.message ||
@@ -44,6 +72,48 @@ function Supplier() {
       );
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleToggleStatus = async (supplier) => {
+    const supplierId = Number(supplier.supplierId);
+
+    if (!Number.isInteger(supplierId) || supplierId <= 0) {
+      alert("Supplier ID not found.");
+      return;
+    }
+
+    const newStatus = !supplier.isActive;
+    const action = newStatus ? "activate" : "deactivate";
+
+    if (
+      !window.confirm(
+        `Are you sure you want to ${action} "${supplier.supplierName}"?`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const response = await api.patch(
+        `/Supplier/${supplierId}/status`,
+        { isActive: newStatus }
+      );
+
+      alert(
+        response.data?.message ||
+          `Supplier ${action}d successfully.`
+      );
+
+      await loadSuppliers();
+    } catch (error) {
+      console.error("SUPPLIER STATUS ERROR:", error);
+
+      alert(
+        error.response?.data?.message ||
+          error.response?.data?.title ||
+          "Failed to change supplier status."
+      );
     }
   };
 
@@ -142,10 +212,7 @@ function Supplier() {
           ...supplierData,
         };
 
-        await api.put(
-          `/Supplier/${editingId}`,
-          updateData
-        );
+        await api.put(`/Supplier/${editingId}`, updateData);
 
         alert("Supplier updated successfully.");
       } else {
@@ -190,20 +257,20 @@ function Supplier() {
       (item) => Number(item.supplierId) === supplierId
     );
 
-    const supplierName =
-      supplier?.supplierName || "this supplier";
+    const supplierName = supplier?.supplierName || "this supplier";
 
-    const confirmDelete = window.confirm(
-      `Are you sure you want to delete "${supplierName}"?`
-    );
-
-    if (!confirmDelete) return;
+    if (
+      !window.confirm(
+        `Are you sure you want to delete "${supplierName}"?`
+      )
+    ) {
+      return;
+    }
 
     try {
       await api.delete(`/Supplier/${supplierId}`);
 
       alert("Supplier deleted successfully.");
-
       await loadSuppliers();
     } catch (error) {
       console.error("SUPPLIER DELETE ERROR:", error);
@@ -217,14 +284,41 @@ function Supplier() {
           ? errorData
           : errorData?.message ||
             errorData?.title ||
-            (error.response?.status === 409
-              ? "This supplier is being used by existing stock batches."
-              : error.message) ||
             "Failed to delete supplier.";
 
-      alert(
-        `Unable to delete supplier.\n\n${errorMessage}`
-      );
+      // Linked suppliers must be retained for existing stock history.
+      if (error.response?.status === 409 && supplier) {
+        const deactivate = window.confirm(
+          `"${supplierName}" is linked to existing stock batches and cannot be deleted.\n\nWould you like to deactivate this supplier instead?`
+        );
+
+        if (deactivate) {
+          try {
+            const response = await api.patch(
+              `/Supplier/${supplierId}/status`,
+              { isActive: false }
+            );
+
+            alert(
+              response.data?.message ||
+                "Supplier deactivated successfully."
+            );
+
+            await loadSuppliers();
+          } catch (statusError) {
+            console.error("SUPPLIER DEACTIVATE ERROR:", statusError);
+
+            alert(
+              statusError.response?.data?.message ||
+                "Could not deactivate this supplier."
+            );
+          }
+        }
+
+        return;
+      }
+
+      alert(`Unable to delete supplier.\n\n${errorMessage}`);
     }
   };
 
@@ -244,6 +338,7 @@ function Supplier() {
       supplier.contactNumber,
       supplier.email,
       supplier.address,
+      supplier.isActive ? "active" : "inactive",
     ].some((value) =>
       String(value || "").toLowerCase().includes(searchText)
     )
@@ -270,6 +365,10 @@ function Supplier() {
             type="button"
             onClick={handleLogout}
             style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
               border: "none",
               background: "#dc3545",
               color: "#fff",
@@ -279,15 +378,23 @@ function Supplier() {
               fontWeight: "600",
             }}
           >
-            ↪ Logout
+            <LogOut size={18} />
+            Logout
           </button>
 
           <button
             type="button"
             className="add-supplier-btn"
             onClick={handleAdd}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+            }}
           >
-            + Add Supplier
+            <Plus size={18} />
+            Add Supplier
           </button>
         </div>
       </div>
@@ -309,8 +416,10 @@ function Supplier() {
               type="button"
               className="close-form-btn"
               onClick={resetForm}
+              aria-label="Close form"
+              title="Close"
             >
-              ×
+              <X size={20} />
             </button>
           </div>
 
@@ -372,7 +481,14 @@ function Supplier() {
                 className="cancel-btn"
                 onClick={resetForm}
                 disabled={saving}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "7px",
+                }}
               >
+                <Ban size={17} />
                 Cancel
               </button>
 
@@ -380,7 +496,14 @@ function Supplier() {
                 type="submit"
                 className="save-supplier-btn"
                 disabled={saving}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "7px",
+                }}
               >
+                <Save size={17} />
                 {saving
                   ? "Saving..."
                   : editingId !== null
@@ -395,7 +518,9 @@ function Supplier() {
       {/* SUMMARY CARDS */}
       <div className="supplier-summary">
         <div className="supplier-summary-card">
-          <div className="summary-icon">🚚</div>
+          <div className="summary-icon">
+            <Truck size={24} />
+          </div>
           <div>
             <span>Total Suppliers</span>
             <strong>{suppliers.length}</strong>
@@ -403,10 +528,36 @@ function Supplier() {
         </div>
 
         <div className="supplier-summary-card">
-          <div className="summary-icon">📋</div>
+          <div className="summary-icon">
+            <ClipboardList size={24} />
+          </div>
           <div>
             <span>Displayed Suppliers</span>
             <strong>{filteredSuppliers.length}</strong>
+          </div>
+        </div>
+
+        <div className="supplier-summary-card">
+          <div className="summary-icon">
+            <CheckCircle size={24} />
+          </div>
+          <div>
+            <span>Active Suppliers</span>
+            <strong>
+              {suppliers.filter((supplier) => supplier.isActive).length}
+            </strong>
+          </div>
+        </div>
+
+        <div className="supplier-summary-card">
+          <div className="summary-icon">
+            <CirclePause size={24} />
+          </div>
+          <div>
+            <span>Inactive Suppliers</span>
+            <strong>
+              {suppliers.filter((supplier) => !supplier.isActive).length}
+            </strong>
           </div>
         </div>
       </div>
@@ -414,7 +565,7 @@ function Supplier() {
       {/* SEARCH */}
       <div className="supplier-toolbar">
         <div className="supplier-search">
-          <span>🔍</span>
+          <Search size={18} />
           <input
             type="text"
             placeholder="Search suppliers..."
@@ -442,7 +593,9 @@ function Supplier() {
           </div>
         ) : filteredSuppliers.length === 0 ? (
           <div className="empty-supplier">
-            <div className="empty-icon">🚚</div>
+            <div className="empty-icon">
+              <Truck size={34} />
+            </div>
             <h3>No suppliers found</h3>
             <p>
               {search
@@ -455,8 +608,15 @@ function Supplier() {
                 type="button"
                 className="empty-add-btn"
                 onClick={handleAdd}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "8px",
+                }}
               >
-                + Add Supplier
+                <Plus size={18} />
+                Add Supplier
               </button>
             )}
           </div>
@@ -470,6 +630,7 @@ function Supplier() {
                   <th>Contact Number</th>
                   <th>Email</th>
                   <th>Address</th>
+                  <th>Status</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -497,9 +658,60 @@ function Supplier() {
                         </div>
                       </td>
 
-                      <td>{supplier.contactNumber || "-"}</td>
-                      <td>{supplier.email || "-"}</td>
-                      <td>{supplier.address || "-"}</td>
+                      <td>
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "7px",
+                          }}
+                        >
+                          <Phone size={15} color="#64748b" />
+                          {supplier.contactNumber || "-"}
+                        </span>
+                      </td>
+
+                      <td>
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "7px",
+                          }}
+                        >
+                          <Mail size={15} color="#64748b" />
+                          {supplier.email || "-"}
+                        </span>
+                      </td>
+
+                      <td>
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "7px",
+                          }}
+                        >
+                          <MapPin size={15} color="#64748b" />
+                          {supplier.address || "-"}
+                        </span>
+                      </td>
+
+                      <td>
+                        <span
+                          style={{
+                            display: "inline-block",
+                            padding: "5px 10px",
+                            borderRadius: "999px",
+                            fontSize: "12px",
+                            fontWeight: 700,
+                            color: supplier.isActive ? "#166534" : "#991b1b",
+                            background: supplier.isActive ? "#dcfce7" : "#fee2e2",
+                          }}
+                        >
+                          {supplier.isActive ? "Active" : "Inactive"}
+                        </span>
+                      </td>
 
                       <td>
                         <div className="supplier-actions">
@@ -508,8 +720,9 @@ function Supplier() {
                             className="edit-supplier-btn"
                             onClick={() => handleEdit(supplier)}
                             title="Edit Supplier"
+                            aria-label="Edit Supplier"
                           >
-                            ✏️
+                            <Pencil size={17} />
                           </button>
 
                           <button
@@ -517,8 +730,48 @@ function Supplier() {
                             className="delete-supplier-btn"
                             onClick={() => handleDelete(supplierId)}
                             title="Delete Supplier"
+                            aria-label="Delete Supplier"
+                            disabled={saving}
                           >
-                            🗑️
+                            <Trash2 size={17} />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleToggleStatus(supplier)}
+                            title={
+                              supplier.isActive
+                                ? "Deactivate Supplier"
+                                : "Activate Supplier"
+                            }
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: "6px",
+                              border: "none",
+                              borderRadius: "6px",
+                              padding: "7px 10px",
+                              cursor: "pointer",
+                              fontWeight: 600,
+                              color: "#fff",
+                              background: supplier.isActive
+                                ? "#d97706"
+                                : "#16a34a",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {supplier.isActive ? (
+                              <>
+                                <CirclePause size={15} />
+                                Deactivate
+                              </>
+                            ) : (
+                              <>
+                                <UserRoundCheck size={15} />
+                                Activate
+                              </>
+                            )}
                           </button>
                         </div>
                       </td>

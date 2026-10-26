@@ -1,6 +1,31 @@
-
 import { useEffect, useState } from "react";
+import {
+  FileText,
+  Banknote,
+  CreditCard,
+  LogOut,
+  Plus,
+  Search,
+  Receipt,
+  Eye,
+} from "lucide-react";
 import api from "./api";
+
+function getField(obj, camel, pascal) {
+  return obj?.[camel] ?? obj?.[pascal];
+}
+
+function normalizeSale(sale) {
+  return {
+    ...sale,
+    saleId: getField(sale, "saleId", "SaleId") ?? getField(sale, "id", "Id"),
+    saleDate: getField(sale, "saleDate", "SaleDate"),
+    userId: getField(sale, "userId", "UserId"),
+    totalAmount: getField(sale, "totalAmount", "TotalAmount") ?? 0,
+    paymentMethod: getField(sale, "paymentMethod", "PaymentMethod") ?? "",
+    status: getField(sale, "status", "Status") ?? "Completed",
+  };
+}
 
 function Sales({ onNewSale, onViewBill }) {
   const [sales, setSales] = useState([]);
@@ -13,11 +38,19 @@ function Sales({ onNewSale, onViewBill }) {
 
   const loadSales = async () => {
     try {
+      setLoading(true);
+
       const response = await api.get("/Sale");
-      setSales(response.data);
+      const rawSales = Array.isArray(response.data)
+        ? response.data
+        : response.data?.data ?? response.data?.items ?? [];
+
+      const normalizedSales = rawSales.map(normalizeSale);
+      setSales(normalizedSales);
     } catch (error) {
       console.error("Failed to load sales:", error);
       console.error("Server response:", error.response?.data);
+      setSales([]);
     } finally {
       setLoading(false);
     }
@@ -28,17 +61,19 @@ function Sales({ onNewSale, onViewBill }) {
     window.location.reload();
   };
 
-  const formatCurrency = (amount) => {
-    return `Rs. ${Number(amount || 0).toLocaleString("en-LK", {
+  const formatCurrency = (amount) =>
+    `Rs. ${Number(amount || 0).toLocaleString("en-LK", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
-  };
 
   const formatDate = (date) => {
     if (!date) return "-";
 
-    return new Date(date).toLocaleDateString("en-US", {
+    const parsedDate = new Date(date);
+    if (Number.isNaN(parsedDate.getTime())) return "-";
+
+    return parsedDate.toLocaleDateString("en-US", {
       month: "short",
       day: "2-digit",
       year: "numeric",
@@ -46,7 +81,7 @@ function Sales({ onNewSale, onViewBill }) {
   };
 
   const filteredSales = sales.filter((sale) =>
-    String(sale.saleId)
+    String(sale.saleId ?? "")
       .toLowerCase()
       .includes(search.toLowerCase())
   );
@@ -57,43 +92,36 @@ function Sales({ onNewSale, onViewBill }) {
   );
 
   const cashSales = sales
-    .filter(
-      (sale) => sale.paymentMethod?.toLowerCase() === "cash"
-    )
-    .reduce(
-      (total, sale) => total + Number(sale.totalAmount || 0),
-      0
-    );
+    .filter((sale) => String(sale.paymentMethod).toLowerCase() === "cash")
+    .reduce((total, sale) => total + Number(sale.totalAmount || 0), 0);
 
   const cardSales = sales
-    .filter(
-      (sale) => sale.paymentMethod?.toLowerCase() === "card"
-    )
-    .reduce(
-      (total, sale) => total + Number(sale.totalAmount || 0),
-      0
-    );
+    .filter((sale) => String(sale.paymentMethod).toLowerCase() === "card")
+    .reduce((total, sale) => total + Number(sale.totalAmount || 0), 0);
+
+  const iconStyle = {
+    width: "22px",
+    height: "22px",
+    strokeWidth: 2,
+  };
 
   return (
     <div className="medicine-page">
-      {/* PAGE HEADER */}
       <div className="medicine-header">
         <div>
           <h1>Sales Management</h1>
           <p>Manage pharmacy sales and billing</p>
         </div>
 
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-          }}
-        >
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <button
             type="button"
             onClick={handleLogout}
             style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
               border: "none",
               background: "#dc3545",
               color: "#fff",
@@ -103,22 +131,31 @@ function Sales({ onNewSale, onViewBill }) {
               fontWeight: "600",
             }}
           >
-            ↪ Logout
+            <LogOut size={18} />
+            Logout
           </button>
 
           <button
             className="add-medicine-btn"
             onClick={onNewSale}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+            }}
           >
-            + New Sale
+            <Plus size={18} />
+            New Sale
           </button>
         </div>
       </div>
 
-      {/* SUMMARY CARDS */}
       <div className="stock-summary-grid">
         <div className="stock-summary-card">
-          <div className="stock-summary-icon total">🧾</div>
+          <div className="stock-summary-icon total">
+            <FileText style={iconStyle} />
+          </div>
           <div>
             <span>Total Bills</span>
             <strong>{sales.length}</strong>
@@ -126,7 +163,9 @@ function Sales({ onNewSale, onViewBill }) {
         </div>
 
         <div className="stock-summary-card">
-          <div className="stock-summary-icon value">💰</div>
+          <div className="stock-summary-icon value">
+            <Banknote style={iconStyle} />
+          </div>
           <div>
             <span>Total Sales</span>
             <strong>{formatCurrency(totalSales)}</strong>
@@ -134,7 +173,9 @@ function Sales({ onNewSale, onViewBill }) {
         </div>
 
         <div className="stock-summary-card">
-          <div className="stock-summary-icon total">💵</div>
+          <div className="stock-summary-icon total">
+            <Receipt style={iconStyle} />
+          </div>
           <div>
             <span>Cash Sales</span>
             <strong>{formatCurrency(cashSales)}</strong>
@@ -142,7 +183,9 @@ function Sales({ onNewSale, onViewBill }) {
         </div>
 
         <div className="stock-summary-card">
-          <div className="stock-summary-icon value">💳</div>
+          <div className="stock-summary-icon value">
+            <CreditCard style={iconStyle} />
+          </div>
           <div>
             <span>Card Sales</span>
             <strong>{formatCurrency(cardSales)}</strong>
@@ -150,10 +193,9 @@ function Sales({ onNewSale, onViewBill }) {
         </div>
       </div>
 
-      {/* SEARCH SECTION */}
       <div className="stock-top-section">
         <div className="medicine-search">
-          <span>⌕</span>
+          <Search size={18} />
           <input
             type="text"
             placeholder="Search by Sale ID..."
@@ -163,14 +205,12 @@ function Sales({ onNewSale, onViewBill }) {
         </div>
       </div>
 
-      {/* SALES HISTORY */}
       <div className="stock-section-card">
         <div className="stock-section-header">
           <div className="stock-section-title">
             <div className="stock-section-icon medicine-section-icon">
-              🧾
+              <Receipt size={22} />
             </div>
-
             <div>
               <h3>Sales History</h3>
               <p>All recorded pharmacy sales</p>
@@ -178,7 +218,6 @@ function Sales({ onNewSale, onViewBill }) {
           </div>
         </div>
 
-        {/* SCROLLABLE TABLE */}
         <div
           className="stock-table-wrapper"
           style={{
@@ -203,34 +242,24 @@ function Sales({ onNewSale, onViewBill }) {
             <tbody>
               {loading ? (
                 <tr>
-                  <td
-                    colSpan="7"
-                    style={{
-                      textAlign: "center",
-                      padding: "40px",
-                    }}
-                  >
+                  <td colSpan="7" style={{ textAlign: "center", padding: "40px" }}>
                     Loading sales...
                   </td>
                 </tr>
               ) : filteredSales.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan="7"
-                    style={{
-                      textAlign: "center",
-                      padding: "40px",
-                    }}
-                  >
+                  <td colSpan="7" style={{ textAlign: "center", padding: "40px" }}>
                     No sales found.
                   </td>
                 </tr>
               ) : (
-                filteredSales.map((sale) => (
-                  <tr key={sale.saleId}>
+                filteredSales.map((sale, index) => (
+                  <tr key={sale.saleId ?? index}>
                     <td>
                       <span className="stock-type medicine-type">
-                        #SAL-{String(sale.saleId).padStart(5, "0")}
+                        {sale.saleId != null
+                          ? `SAL-${String(sale.saleId).padStart(5, "0")}`
+                          : "SAL-Unknown"}
                       </span>
                     </td>
 
@@ -242,7 +271,7 @@ function Sales({ onNewSale, onViewBill }) {
 
                     <td>
                       <span className="stock-detail-text">
-                        #{sale.userId}
+                        {sale.userId != null ? `#${sale.userId}` : "-"}
                       </span>
                     </td>
 
@@ -254,30 +283,38 @@ function Sales({ onNewSale, onViewBill }) {
 
                     <td>
                       <span className="category-badge">
-                        {sale.paymentMethod}
+                        {sale.paymentMethod || "-"}
                       </span>
                     </td>
 
                     <td>
                       <span className="status-badge completed">
-                        Completed
+                        {sale.status || "Completed"}
                       </span>
                     </td>
 
                     <td>
                       <button
+                        type="button"
                         onClick={() => onViewBill(sale.saleId)}
+                        disabled={sale.saleId == null}
                         style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "7px",
                           border: "none",
                           background: "#e8f5e9",
                           color: "#2e7d32",
                           padding: "8px 12px",
                           borderRadius: "6px",
-                          cursor: "pointer",
+                          cursor:
+                            sale.saleId == null ? "not-allowed" : "pointer",
                           fontWeight: "600",
                         }}
                       >
-                        👁 View Bill
+                        <Eye size={17} />
+                        View Bill
                       </button>
                     </td>
                   </tr>

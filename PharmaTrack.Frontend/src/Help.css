@@ -420,4 +420,41 @@
   .help-modal h2 {
     font-size: 16px;
   }
+
+
+/* Lucide icon alignment */
+.help-logout-btn,
+.help-card button,
+.help-modal-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.help-icon,
+.help-modal-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.help-icon svg,
+.help-modal-icon svg {
+  flex-shrink: 0;
+}
+
+.help-error-message {
+  color: #dc2626;
+  font-size: 12px;
+  margin-top: 8px;
+}
+
+.remote-warning strong {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+
 }

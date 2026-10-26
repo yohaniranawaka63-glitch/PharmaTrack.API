@@ -1,6 +1,14 @@
-
+﻿
 import { useEffect, useState } from "react";
 import api from "./api";
+import {
+  Search,
+  Package,
+  Pencil,
+  Trash2,
+  LogOut,
+  X,
+} from "lucide-react";
 
 const emptyForm = {
   itemName: "",
@@ -25,57 +33,113 @@ function OtherItem() {
 
   const [formData, setFormData] = useState({ ...emptyForm });
 
-  // LOGOUT
+  const getField = (obj, camel, pascal) =>
+    obj?.[camel] ?? obj?.[pascal];
+
+  const normalizeCategory = (category) => ({
+    ...category,
+    categoryId: getField(category, "categoryId", "CategoryId"),
+    categoryName: getField(category, "categoryName", "CategoryName"),
+    status: getField(category, "status", "Status"),
+  });
+
+  const normalizeItem = (item) => {
+    const categoryObject = getField(
+      item,
+      "productCategory",
+      "ProductCategory"
+    );
+
+    return {
+      ...item,
+      otherItemId:
+        getField(item, "otherItemId", "OtherItemId") ??
+        getField(item, "id", "Id"),
+      itemName:
+        getField(item, "itemName", "ItemName") ??
+        getField(item, "name", "Name") ??
+        "",
+      category:
+        getField(item, "category", "Category") ?? "",
+      productCategoryId:
+        getField(item, "productCategoryId", "ProductCategoryId") ??
+        getField(categoryObject, "categoryId", "CategoryId") ??
+        "",
+      productCategory: categoryObject
+        ? {
+            ...categoryObject,
+            categoryId: getField(
+              categoryObject,
+              "categoryId",
+              "CategoryId"
+            ),
+            categoryName: getField(
+              categoryObject,
+              "categoryName",
+              "CategoryName"
+            ),
+          }
+        : null,
+      unit: getField(item, "unit", "Unit") ?? "",
+      purchasePrice:
+        getField(item, "purchasePrice", "PurchasePrice") ?? 0,
+      sellingPrice:
+        getField(item, "sellingPrice", "SellingPrice") ?? 0,
+      quantity: getField(item, "quantity", "Quantity") ?? 0,
+      reorderLevel:
+        getField(item, "reorderLevel", "ReorderLevel") ?? 0,
+      status: getField(item, "status", "Status") ?? true,
+    };
+  };
+
   const handleLogout = () => {
     localStorage.removeItem("pharmaTrackUser");
     sessionStorage.removeItem("pharmaTrackUser");
     window.location.reload();
   };
 
-  // LOAD ITEMS AND CATEGORIES
   useEffect(() => {
     loadItems();
     loadCategories();
   }, []);
 
-  // LOAD OTHER ITEMS
   const loadItems = async () => {
     setLoading(true);
 
     try {
       const response = await api.get("/OtherItem");
+      const data = Array.isArray(response.data)
+        ? response.data
+        : [];
 
-      setItems(
-        Array.isArray(response.data) ? response.data : []
-      );
+      console.log("OTHER ITEMS FROM API:", data);
+
+      const normalized = data.map(normalizeItem);
+      console.log("NORMALIZED OTHER ITEMS:", normalized);
+
+      setItems(normalized);
     } catch (error) {
       console.error("LOAD OTHER ITEMS ERROR:", error);
-      console.error("STATUS:", error.response?.status);
-      console.error("DATA:", error.response?.data);
-
       alert(
         error.response?.data?.message ||
           error.response?.data?.title ||
-          "Failed to load other items. Please check the API."
+          "Failed to load other items."
       );
     } finally {
       setLoading(false);
     }
   };
 
-  // LOAD PRODUCT CATEGORIES
   const loadCategories = async () => {
     try {
       const response = await api.get("/ProductCategory");
+      const data = Array.isArray(response.data)
+        ? response.data
+        : [];
 
-      setCategories(
-        Array.isArray(response.data) ? response.data : []
-      );
+      setCategories(data.map(normalizeCategory));
     } catch (error) {
       console.error("LOAD CATEGORIES ERROR:", error);
-      console.error("STATUS:", error.response?.status);
-      console.error("DATA:", error.response?.data);
-
       alert(
         error.response?.data?.message ||
           error.response?.data?.title ||
@@ -84,17 +148,16 @@ function OtherItem() {
     }
   };
 
-  // ACTIVE CATEGORIES
   const activeCategories = categories.filter(
-    (category) => category.status === true
+    (category) => category.status !== false
   );
 
-  // GET CATEGORY NAME
   const getCategoryName = (item) => {
     const categoryId = item.productCategoryId;
 
     const matchedCategory = categories.find(
       (category) =>
+        categoryId !== "" &&
         categoryId != null &&
         Number(category.categoryId) === Number(categoryId)
     );
@@ -107,20 +170,19 @@ function OtherItem() {
     );
   };
 
-  // SEARCH
   const searchText = search.toLowerCase().trim();
 
   const filteredItems = items.filter((item) =>
     [
+      item.otherItemId,
       item.itemName,
       getCategoryName(item),
       item.unit,
     ].some((value) =>
-      String(value || "").toLowerCase().includes(searchText)
+      String(value ?? "").toLowerCase().includes(searchText)
     )
   );
 
-  // INPUT CHANGE
   const handleInputChange = (event) => {
     const { name, value } = event.target;
 
@@ -145,21 +207,18 @@ function OtherItem() {
     });
   };
 
-  // RESET FORM
   const resetForm = () => {
     setFormData({ ...emptyForm });
     setEditingId(null);
     setShowForm(false);
   };
 
-  // ADD ITEM
   const handleAddItem = () => {
     setEditingId(null);
     setFormData({ ...emptyForm });
     setShowForm(true);
   };
 
-  // EDIT ITEM
   const handleEditItem = (item) => {
     const id = Number(item.otherItemId);
 
@@ -173,14 +232,13 @@ function OtherItem() {
     setEditingId(id);
 
     setFormData({
-      itemName: item.itemName || "",
-      category:
-        categoryName === "No Category" ? "" : categoryName,
+      itemName: item.itemName ?? "",
+      category: categoryName === "No Category" ? "" : categoryName,
       productCategoryId:
         item.productCategoryId != null
           ? String(item.productCategoryId)
           : "",
-      unit: item.unit || "",
+      unit: item.unit ?? "",
       purchasePrice: item.purchasePrice ?? "",
       sellingPrice: item.sellingPrice ?? "",
       quantity: item.quantity ?? "",
@@ -189,9 +247,9 @@ function OtherItem() {
     });
 
     setShowForm(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // DELETE ITEM
   const handleDeleteItem = async (id) => {
     const itemId = Number(id);
 
@@ -215,7 +273,6 @@ function OtherItem() {
 
     try {
       await api.delete(`/OtherItem/${itemId}`);
-
       alert("Other item deleted successfully.");
 
       setItems((previous) =>
@@ -228,11 +285,8 @@ function OtherItem() {
       await loadItems();
     } catch (error) {
       console.error("DELETE OTHER ITEM ERROR:", error);
-      console.error("STATUS:", error.response?.status);
-      console.error("DATA:", error.response?.data);
 
       const errorData = error.response?.data;
-
       const message =
         typeof errorData === "string"
           ? errorData
@@ -247,10 +301,8 @@ function OtherItem() {
     }
   };
 
-  // ADD / UPDATE ITEM
   const handleSaveItem = async (event) => {
     event.preventDefault();
-
     if (saving) return;
 
     const itemName = formData.itemName.trim();
@@ -316,23 +368,21 @@ function OtherItem() {
     );
 
     if (!selectedCategory) {
-      alert(
-        "The selected category could not be found. Please select it again."
-      );
+      alert("Selected category could not be found. Please select it again.");
       return;
     }
 
     const data = {
-      itemName,
-      category: selectedCategory.categoryName,
-      productCategoryId: Number(formData.productCategoryId),
-      unit: formData.unit,
-      purchasePrice,
-      sellingPrice,
-      quantity,
-      reorderLevel,
-      status: Boolean(formData.status),
-    };
+  ItemName: itemName.trim(),
+  Category: selectedCategory.categoryName,
+  ProductCategoryId: Number(formData.productCategoryId),
+  Unit: formData.unit,
+  PurchasePrice: Number(purchasePrice),
+  SellingPrice: Number(sellingPrice),
+  Quantity: Number(quantity),
+  ReorderLevel: Number(reorderLevel),
+  Status: Boolean(formData.status),
+};
 
     setSaving(true);
 
@@ -346,7 +396,6 @@ function OtherItem() {
         alert("Other item updated successfully.");
       } else {
         await api.post("/OtherItem", data);
-
         alert("Other item added successfully.");
       }
 
@@ -354,18 +403,15 @@ function OtherItem() {
       await loadItems();
     } catch (error) {
       console.error("SAVE OTHER ITEM ERROR:", error);
-      console.error("STATUS:", error.response?.status);
-      console.error("DATA:", error.response?.data);
 
       const errorData = error.response?.data;
-
       const message =
         typeof errorData === "string"
           ? errorData
           : errorData?.message ||
             errorData?.title ||
             error.message ||
-            "Failed to save other item. Please check the API response.";
+            "Failed to save other item.";
 
       alert(`Unable to save item.\n\n${message}`);
     } finally {
@@ -373,7 +419,6 @@ function OtherItem() {
     }
   };
 
-  // STOCK STATUS
   const getStockStatus = (item) => {
     const quantity = Number(item.quantity ?? 0);
     const reorderLevel = Number(item.reorderLevel ?? 0);
@@ -403,7 +448,6 @@ function OtherItem() {
 
   return (
     <div className="medicine-page">
-      {/* HEADER */}
       <div className="medicine-header">
         <div>
           <h1>Other Item Management</h1>
@@ -430,9 +474,12 @@ function OtherItem() {
               borderRadius: "8px",
               cursor: "pointer",
               fontWeight: "600",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
             }}
           >
-            ↪ Logout
+            <LogOut size={16} /> Logout
           </button>
 
           <button
@@ -440,15 +487,15 @@ function OtherItem() {
             className="add-medicine-btn"
             onClick={handleAddItem}
           >
-            + Add Other Item
+            <span style={{ marginRight: "6px" }}>+</span>
+            Add Other Item
           </button>
         </div>
       </div>
 
-      {/* SEARCH AND SUMMARY */}
       <div className="medicine-top-section">
         <div className="medicine-search">
-          <span>🔍</span>
+          <span><Search size={18} /></span>
           <input
             type="text"
             placeholder="Search item..."
@@ -463,7 +510,6 @@ function OtherItem() {
         </div>
       </div>
 
-      {/* ADD / EDIT FORM */}
       {showForm && (
         <div className="medicine-form-card">
           <div className="medicine-form-header">
@@ -486,13 +532,12 @@ function OtherItem() {
               onClick={resetForm}
               disabled={saving}
             >
-              ×
+              <X size={16} />
             </button>
           </div>
 
           <form onSubmit={handleSaveItem}>
             <div className="medicine-form-grid">
-              {/* ITEM NAME */}
               <div className="form-group">
                 <label>Item Name</label>
                 <input
@@ -506,7 +551,6 @@ function OtherItem() {
                 />
               </div>
 
-              {/* PRODUCT CATEGORY */}
               <div className="form-group">
                 <label>Product Category</label>
                 <select
@@ -515,34 +559,19 @@ function OtherItem() {
                   onChange={handleInputChange}
                   required
                 >
-                  <option value="">
-                    Select Product Category
-                  </option>
+                  <option value="">Select Product Category</option>
 
-                  {activeCategories.map((category) => {
-                    const duplicateCount =
-                      activeCategories.filter(
-                        (candidate) =>
-                          candidate.categoryName?.trim().toLowerCase() ===
-                          category.categoryName?.trim().toLowerCase()
-                      ).length;
-
-                    return (
-                      <option
-                        key={category.categoryId}
-                        value={category.categoryId}
-                      >
-                        {category.categoryName}
-                        {duplicateCount > 1
-                          ? ` (ID: ${category.categoryId})`
-                          : ""}
-                      </option>
-                    );
-                  })}
+                  {activeCategories.map((category) => (
+                    <option
+                      key={category.categoryId}
+                      value={category.categoryId}
+                    >
+                      {category.categoryName}
+                    </option>
+                  ))}
                 </select>
               </div>
 
-              {/* UNIT */}
               <div className="form-group">
                 <label>Unit</label>
                 <select
@@ -564,13 +593,11 @@ function OtherItem() {
                 </select>
               </div>
 
-              {/* PURCHASE PRICE */}
               <div className="form-group">
                 <label>Purchase Price (Rs.)</label>
                 <input
                   type="number"
                   name="purchasePrice"
-                  placeholder="e.g. 850"
                   min="0"
                   step="0.01"
                   value={formData.purchasePrice}
@@ -579,13 +606,11 @@ function OtherItem() {
                 />
               </div>
 
-              {/* SELLING PRICE */}
               <div className="form-group">
                 <label>Selling Price (Rs.)</label>
                 <input
                   type="number"
                   name="sellingPrice"
-                  placeholder="e.g. 1000"
                   min="0"
                   step="0.01"
                   value={formData.sellingPrice}
@@ -594,13 +619,11 @@ function OtherItem() {
                 />
               </div>
 
-              {/* QUANTITY */}
               <div className="form-group">
                 <label>Quantity</label>
                 <input
                   type="number"
                   name="quantity"
-                  placeholder="e.g. 20"
                   min="0"
                   step="1"
                   value={formData.quantity}
@@ -609,13 +632,11 @@ function OtherItem() {
                 />
               </div>
 
-              {/* REORDER LEVEL */}
               <div className="form-group">
                 <label>Reorder Level</label>
                 <input
                   type="number"
                   name="reorderLevel"
-                  placeholder="e.g. 5"
                   min="0"
                   step="1"
                   value={formData.reorderLevel}
@@ -624,7 +645,6 @@ function OtherItem() {
                 />
               </div>
 
-              {/* STATUS */}
               <div className="form-group">
                 <label>Status</label>
                 <select
@@ -643,7 +663,6 @@ function OtherItem() {
               </div>
             </div>
 
-            {/* FORM BUTTONS */}
             <div className="medicine-form-actions">
               <button
                 type="button"
@@ -670,7 +689,6 @@ function OtherItem() {
         </div>
       )}
 
-      {/* ITEMS TABLE */}
       <div className="medicine-table-container">
         <div className="table-title">
           <div>
@@ -703,18 +721,20 @@ function OtherItem() {
               </thead>
 
               <tbody>
-                {filteredItems.map((item) => (
-                  <tr key={item.otherItemId}>
+                {filteredItems.map((item, index) => (
+                  <tr key={item.otherItemId ?? index}>
                     <td>
                       <span className="medicine-id">
-                        #{item.otherItemId}
+                        #{item.otherItemId ?? "-"}
                       </span>
                     </td>
 
                     <td>
                       <div className="medicine-name-cell">
-                        <div className="medicine-icon">📦</div>
-                        <strong>{item.itemName}</strong>
+                        <div className="medicine-icon">
+                          <Package size={20} />
+                        </div>
+                        <strong>{item.itemName || "-"}</strong>
                       </div>
                     </td>
 
@@ -728,13 +748,13 @@ function OtherItem() {
 
                     <td>
                       Rs.{" "}
-                      {Number(item.purchasePrice || 0).toFixed(2)}
+                      {Number(item.purchasePrice ?? 0).toFixed(2)}
                     </td>
 
                     <td>
                       <strong>
                         Rs.{" "}
-                        {Number(item.sellingPrice || 0).toFixed(2)}
+                        {Number(item.sellingPrice ?? 0).toFixed(2)}
                       </strong>
                     </td>
 
@@ -745,7 +765,7 @@ function OtherItem() {
                     <td>
                       {getStockStatus(item)}
 
-                      {!item.status && (
+                      {item.status === false && (
                         <div style={{ marginTop: "4px" }}>
                           <span className="status-badge">
                             Inactive
@@ -761,7 +781,7 @@ function OtherItem() {
                           className="edit-btn"
                           onClick={() => handleEditItem(item)}
                         >
-                          ✏️ Edit
+                          <Pencil size={14} /> Edit
                         </button>
 
                         <button
@@ -771,7 +791,7 @@ function OtherItem() {
                             handleDeleteItem(item.otherItemId)
                           }
                         >
-                          🗑️ Delete
+                          <Trash2 size={14} /> Delete
                         </button>
                       </div>
                     </td>
@@ -782,7 +802,7 @@ function OtherItem() {
 
             {filteredItems.length === 0 && (
               <div className="no-medicines">
-                <div>📦</div>
+                <div><Package size={28} /></div>
                 <h3>No other items found</h3>
                 <p>
                   {search

@@ -1,5 +1,17 @@
+
 import { useState } from "react";
-import axios from "axios";
+import {
+  LogOut,
+  BookOpen,
+  Wrench,
+  Laptop,
+  Phone,
+  CheckCircle,
+  ArrowRight,
+  X,
+  ShieldAlert,
+} from "lucide-react";
+import api from "./api";
 import "./Help.css";
 
 function Help() {
@@ -9,10 +21,6 @@ function Help() {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-
-
-const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
-
 
   const USER_ID = 9;
 
@@ -34,7 +42,7 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
     setError("");
 
     try {
-      await axios.post(API_URL, {
+      await api.post("/SupportRequest", {
         userId: USER_ID,
         requestType: "System Issue",
         message: issue.trim(),
@@ -62,7 +70,7 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
     setError("");
 
     try {
-      await axios.post(API_URL, {
+      await api.post("/SupportRequest", {
         userId: USER_ID,
         requestType: "Remote Support",
         message: supportMessage.trim(),
@@ -81,7 +89,6 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
     }
   };
 
-  // LOGOUT
   const handleLogout = () => {
     sessionStorage.removeItem("pharmaTrackUser");
     window.location.reload();
@@ -98,25 +105,19 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
         <button
           type="button"
           onClick={handleLogout}
-          style={{
-            border: "none",
-            background: "#dc3545",
-            color: "#fff",
-            padding: "10px 16px",
-            borderRadius: "8px",
-            cursor: "pointer",
-            fontWeight: "600",
-          }}
+          className="help-logout-btn"
         >
-          ↪ Logout
+          <LogOut size={16} />
+          Logout
         </button>
       </div>
 
       <div className="help-grid">
-
         {/* HOW TO USE */}
         <div className="help-card">
-          <div className="help-icon">📖</div>
+          <div className="help-icon">
+            <BookOpen size={25} />
+          </div>
 
           <h2>How to Use PharmaTrack</h2>
 
@@ -132,13 +133,15 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
               setActiveModal("guide");
             }}
           >
-            View Guide →
+            View Guide <ArrowRight size={15} />
           </button>
         </div>
 
         {/* REPORT ISSUE */}
         <div className="help-card">
-          <div className="help-icon">🛠️</div>
+          <div className="help-icon">
+            <Wrench size={25} />
+          </div>
 
           <h2>Report a System Issue</h2>
 
@@ -154,13 +157,15 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
               setActiveModal("issue");
             }}
           >
-            Report Issue →
+            Report Issue <ArrowRight size={15} />
           </button>
         </div>
 
         {/* REMOTE SUPPORT */}
         <div className="help-card">
-          <div className="help-icon">💻</div>
+          <div className="help-icon">
+            <Laptop size={25} />
+          </div>
 
           <h2>Remote Support</h2>
 
@@ -176,13 +181,15 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
               setActiveModal("remote");
             }}
           >
-            Request Support →
+            Request Support <ArrowRight size={15} />
           </button>
         </div>
 
         {/* CONTACT SUPPORT */}
         <div className="help-card">
-          <div className="help-icon">📞</div>
+          <div className="help-icon">
+            <Phone size={25} />
+          </div>
 
           <h2>Contact Support</h2>
 
@@ -198,15 +205,12 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
               setActiveModal("contact");
             }}
           >
-            Contact Support →
+            Contact Support <ArrowRight size={15} />
           </button>
         </div>
       </div>
 
-      {/* =========================
-          MODAL
-      ========================= */}
-
+      {/* MODAL */}
       {activeModal && (
         <div
           className="help-modal-overlay"
@@ -220,17 +224,17 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
               type="button"
               className="help-modal-close"
               onClick={closeModal}
+              aria-label="Close modal"
             >
-              ×
+              <X size={20} />
             </button>
 
-            {/* =========================
-                USER GUIDE
-            ========================= */}
-
+            {/* USER GUIDE */}
             {activeModal === "guide" && (
               <>
-                <div className="help-modal-icon">📖</div>
+                <div className="help-modal-icon">
+                  <BookOpen size={27} />
+                </div>
 
                 <h2>PharmaTrack User Guide</h2>
 
@@ -239,7 +243,6 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
                 </p>
 
                 <div className="guide-list">
-
                   <div>
                     <strong>1. Dashboard</strong>
                     <span>
@@ -332,7 +335,6 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
                       Issue or Request Support from the Need Help page.
                     </span>
                   </div>
-
                 </div>
 
                 <button
@@ -345,13 +347,12 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
               </>
             )}
 
-            {/* =========================
-                REPORT ISSUE
-            ========================= */}
-
+            {/* REPORT ISSUE */}
             {activeModal === "issue" && (
               <>
-                <div className="help-modal-icon">🛠️</div>
+                <div className="help-modal-icon">
+                  <Wrench size={27} />
+                </div>
 
                 <h2>Report a System Issue</h2>
 
@@ -368,16 +369,11 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
                       onChange={(e) => setIssue(e.target.value)}
                       rows="5"
                       disabled={loading}
+                      required
                     />
 
                     {error && (
-                      <p
-                        style={{
-                          color: "#dc2626",
-                          fontSize: "12px",
-                          marginTop: "8px",
-                        }}
-                      >
+                      <p className="help-error-message">
                         {error}
                       </p>
                     )}
@@ -387,12 +383,21 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
                       className="help-modal-primary"
                       disabled={loading}
                     >
-                      {loading ? "Submitting..." : "Submit Issue"}
+                      {loading ? (
+                        "Submitting..."
+                      ) : (
+                        <>
+                          <Wrench size={16} />
+                          Submit Issue
+                        </>
+                      )}
                     </button>
                   </form>
                 ) : (
                   <div className="help-success">
-                    <div>✓</div>
+                    <div>
+                      <CheckCircle size={30} />
+                    </div>
 
                     <h3>Issue Submitted</h3>
 
@@ -413,13 +418,12 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
               </>
             )}
 
-            {/* =========================
-                REMOTE SUPPORT
-            ========================= */}
-
+            {/* REMOTE SUPPORT */}
             {activeModal === "remote" && (
               <>
-                <div className="help-modal-icon">💻</div>
+                <div className="help-modal-icon">
+                  <Laptop size={27} />
+                </div>
 
                 <h2>Request Remote Support</h2>
 
@@ -431,7 +435,10 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
                     </p>
 
                     <div className="remote-warning">
-                      <strong>Important</strong>
+                      <strong>
+                        <ShieldAlert size={16} />
+                        Important
+                      </strong>
 
                       <span>
                         Remote access should only be provided with
@@ -448,16 +455,11 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
                       }
                       rows="5"
                       disabled={loading}
+                      required
                     />
 
                     {error && (
-                      <p
-                        style={{
-                          color: "#dc2626",
-                          fontSize: "12px",
-                          marginTop: "8px",
-                        }}
-                      >
+                      <p className="help-error-message">
                         {error}
                       </p>
                     )}
@@ -467,14 +469,21 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
                       className="help-modal-primary"
                       disabled={loading}
                     >
-                      {loading
-                        ? "Sending..."
-                        : "Send Support Request"}
+                      {loading ? (
+                        "Sending..."
+                      ) : (
+                        <>
+                          <ArrowRight size={16} />
+                          Send Support Request
+                        </>
+                      )}
                     </button>
                   </form>
                 ) : (
                   <div className="help-success">
-                    <div>✓</div>
+                    <div>
+                      <CheckCircle size={30} />
+                    </div>
 
                     <h3>Support Request Sent</h3>
 
@@ -496,13 +505,12 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
               </>
             )}
 
-            {/* =========================
-                CONTACT SUPPORT
-            ========================= */}
-
+            {/* CONTACT SUPPORT */}
             {activeModal === "contact" && (
               <>
-                <div className="help-modal-icon">📞</div>
+                <div className="help-modal-icon">
+                  <Phone size={27} />
+                </div>
 
                 <h2>Contact Support</h2>
 
@@ -512,7 +520,6 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
                 </p>
 
                 <div className="contact-info">
-
                   <div>
                     <span>Support</span>
                     <strong>
@@ -522,18 +529,13 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
 
                   <div>
                     <span>Email</span>
-                    <strong>
-                      support@pharmatrack.com
-                    </strong>
+                    <strong>myprojectdetails08@gmail.com</strong>
                   </div>
 
                   <div>
                     <span>Availability</span>
-                    <strong>
-                      Technical Support
-                    </strong>
+                    <strong>Technical Support</strong>
                   </div>
-
                 </div>
 
                 <button
@@ -545,7 +547,6 @@ const API = "https://pharmatrack-api-b0035.containers.snapdeploy.app/api";
                 </button>
               </>
             )}
-
           </div>
         </div>
       )}

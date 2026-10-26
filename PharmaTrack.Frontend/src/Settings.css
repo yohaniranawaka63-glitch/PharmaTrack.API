@@ -331,4 +331,55 @@
     width: 100%;
   }
 }
+
+
+/* Icon alignment */
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.settings-logout-btn,
+.settings-success,
+.settings-help-btn,
+.settings-save-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.settings-logout-btn {
+  border: none;
+  background: #dc3545;
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.settings-card-icon svg,
+.settings-help-icon svg {
+  display: block;
+}
+
+.settings-card-icon {
+  color: var(--primary);
+}
+
+.settings-help-icon {
+  font-size: initial;
+}
+
+@media (max-width: 480px) {
+  .settings-header {
+    align-items: flex-start;
+  }
+}
+
+
 }

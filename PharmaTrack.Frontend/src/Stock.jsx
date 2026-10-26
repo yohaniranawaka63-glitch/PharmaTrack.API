@@ -1,6 +1,19 @@
-
 import { useEffect, useState } from "react";
 import api from "./api";
+import {
+  Package,
+  Pill,
+  Search,
+  Pencil,
+  Trash2,
+  AlertTriangle,
+  Plus,
+  X,
+  LogOut,
+  DollarSign,
+  Clock,
+  Ban,
+} from "lucide-react";
 
 function Stock() {
   const handleLogout = () => {
@@ -13,10 +26,8 @@ function Stock() {
   const [medicines, setMedicines] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [categories, setCategories] = useState([]);
-
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All");
-
   const [showForm, setShowForm] = useState(false);
   const [itemType, setItemType] = useState("Medicine");
   const [editingBatchId, setEditingBatchId] = useState(null);
@@ -42,11 +53,85 @@ function Stock() {
 
   const [formData, setFormData] = useState({ ...emptyForm });
 
+  const getField = (item, camelCase, pascalCase) =>
+    item?.[camelCase] ?? item?.[pascalCase];
+
+  const normalizeMedicine = (medicine) => ({
+    ...medicine,
+    medicineId: getField(medicine, "medicineId", "MedicineId"),
+    name: getField(medicine, "name", "Name"),
+    genericName: getField(medicine, "genericName", "GenericName"),
+    strength: getField(medicine, "strength", "Strength"),
+    category: getField(medicine, "category", "Category"),
+    unit: getField(medicine, "unit", "Unit"),
+    isActive: getField(medicine, "isActive", "IsActive"),
+  });
+
+  const normalizeSupplier = (supplier) => ({
+    ...supplier,
+    supplierId: getField(supplier, "supplierId", "SupplierId"),
+    supplierName: getField(supplier, "supplierName", "SupplierName"),
+    isActive: getField(supplier, "isActive", "IsActive"),
+  });
+
+  const normalizeCategory = (category) => ({
+    ...category,
+    categoryId: getField(category, "categoryId", "CategoryId"),
+    categoryName: getField(category, "categoryName", "CategoryName"),
+    status: getField(category, "status", "Status"),
+  });
+
+  const getOtherItemId = (item) => {
+    const id =
+      item?.otherItemId ??
+      item?.OtherItemId ??
+      item?.id ??
+      item?.Id;
+
+    return id != null ? Number(id) : null;
+  };
+
+  const normalizeOtherItem = (item) => {
+    const productCategory = getField(
+      item,
+      "productCategory",
+      "ProductCategory"
+    );
+
+    return {
+      ...item,
+      otherItemId: getOtherItemId(item),
+      name:
+        getField(item, "itemName", "ItemName") ??
+        getField(item, "name", "Name") ??
+        "",
+      itemName:
+        getField(item, "itemName", "ItemName") ??
+        getField(item, "name", "Name") ??
+        "",
+      productCategoryId: getField(
+        item,
+        "productCategoryId",
+        "ProductCategoryId"
+      ),
+      productCategoryName:
+        getField(productCategory, "categoryName", "CategoryName") ??
+        getField(item, "productCategoryName", "ProductCategoryName") ??
+        "",
+      category: getField(item, "category", "Category") ?? "",
+      unit: getField(item, "unit", "Unit") ?? "",
+      purchasePrice: getField(item, "purchasePrice", "PurchasePrice"),
+      sellingPrice: getField(item, "sellingPrice", "SellingPrice"),
+      quantity: getField(item, "quantity", "Quantity"),
+      reorderLevel: getField(item, "reorderLevel", "ReorderLevel"),
+      status: getField(item, "status", "Status"),
+    };
+  };
+
   useEffect(() => {
     loadAllData();
   }, []);
 
-  // LOAD ALL DATA
   const loadAllData = async () => {
     try {
       const [
@@ -59,25 +144,29 @@ function Stock() {
         api.get("/ProductCategory"),
       ]);
 
-      const medicineList = Array.isArray(medicineResponse.data)
-        ? medicineResponse.data
-        : [];
+      const medicineList = (
+        Array.isArray(medicineResponse.data)
+          ? medicineResponse.data
+          : []
+      ).map(normalizeMedicine);
 
-      setMedicines(medicineList);
-
-      setSuppliers(
+      const supplierList = (
         Array.isArray(supplierResponse.data)
           ? supplierResponse.data
           : []
-      );
+      ).map(normalizeSupplier);
 
-      setCategories(
+      const categoryList = (
         Array.isArray(categoryResponse.data)
           ? categoryResponse.data
           : []
-      );
+      ).map(normalizeCategory);
 
-      await loadStock(medicineList);
+      setMedicines(medicineList);
+      setSuppliers(supplierList);
+      setCategories(categoryList);
+
+      await loadStock(medicineList, supplierList);
     } catch (error) {
       console.error("LOAD DATA ERROR:", error);
       alert(
@@ -87,31 +176,54 @@ function Stock() {
     }
   };
 
-  // LOAD STOCK
-  const loadStock = async (activeMedicines = null) => {
+  const loadStock = async (
+    medicineList = null,
+    supplierList = null
+  ) => {
     try {
-      let medicineList = activeMedicines;
+      let currentMedicines = medicineList;
+      let currentSuppliers = supplierList;
 
-      if (!Array.isArray(medicineList)) {
+      if (!Array.isArray(currentMedicines)) {
         const response = await api.get("/Medicine");
+        currentMedicines = (
+          Array.isArray(response.data) ? response.data : []
+        ).map(normalizeMedicine);
+        setMedicines(currentMedicines);
+      }
 
-        medicineList = Array.isArray(response.data)
-          ? response.data
-          : [];
-
-        setMedicines(medicineList);
+      if (!Array.isArray(currentSuppliers)) {
+        const response = await api.get("/Supplier");
+        currentSuppliers = (
+          Array.isArray(response.data) ? response.data : []
+        ).map(normalizeSupplier);
+        setSuppliers(currentSuppliers);
       }
 
       const activeMedicineIds = new Set(
-        medicineList.map((medicine) =>
-          Number(medicine.medicineId)
-        )
+        currentMedicines
+          .filter((medicine) => medicine.isActive === true)
+          .map((medicine) => Number(medicine.medicineId))
+      );
+
+      const supplierMap = new Map(
+        currentSuppliers.map((supplier) => [
+          Number(supplier.supplierId),
+          supplier.supplierName,
+        ])
+      );
+
+      const medicineMap = new Map(
+        currentMedicines.map((medicine) => [
+          Number(medicine.medicineId),
+          medicine,
+        ])
       );
 
       const [medicineResponse, otherItemResponse] =
         await Promise.all([
-          api.get("/Stock/Medicines"),
-          api.get("/Stock/OtherItems"),
+          api.get("/MedicineBatch"),
+          api.get("/OtherItem"),
         ]);
 
       const medicineRows = Array.isArray(medicineResponse.data)
@@ -119,19 +231,75 @@ function Stock() {
         : [];
 
       setMedicineStock(
-        medicineRows.map((item) => ({
-          ...item,
-          medicineIsActive: activeMedicineIds.has(
-            Number(item.medicineId)
-          ),
-        }))
+        medicineRows.map((item) => {
+          const medicineId = Number(
+            getField(item, "medicineId", "MedicineId")
+          );
+
+          const supplierId = getField(
+            item,
+            "supplierId",
+            "SupplierId"
+          );
+
+          const medicine =
+            getField(item, "medicine", "Medicine") ??
+            medicineMap.get(medicineId);
+
+          const supplier = getField(item, "supplier", "Supplier");
+
+          return {
+            ...item,
+            batchId: Number(
+              getField(item, "batchId", "BatchId") ??
+                getField(item, "id", "Id")
+            ),
+            medicineId,
+            supplierId,
+            batchName: getField(item, "batchName", "BatchName"),
+            manufacturingDate: getField(
+              item,
+              "manufacturingDate",
+              "ManufacturingDate"
+            ),
+            expiryDate: getField(item, "expiryDate", "ExpiryDate"),
+            purchasePrice: getField(
+              item,
+              "purchasePrice",
+              "PurchasePrice"
+            ),
+            sellingPrice: getField(
+              item,
+              "sellingPrice",
+              "SellingPrice"
+            ),
+            quantity: getField(item, "quantity", "Quantity"),
+            name:
+              getField(medicine, "name", "Name") ??
+              getField(item, "medicineName", "MedicineName") ??
+              "",
+            strength:
+              getField(medicine, "strength", "Strength") ??
+              getField(item, "strength", "Strength") ??
+              "",
+            unit:
+              getField(medicine, "unit", "Unit") ??
+              getField(item, "unit", "Unit") ??
+              "",
+            supplier:
+              getField(supplier, "supplierName", "SupplierName") ??
+              supplierMap.get(Number(supplierId)) ??
+              "",
+            medicineIsActive: activeMedicineIds.has(medicineId),
+          };
+        })
       );
 
-      setOtherItemStock(
-        Array.isArray(otherItemResponse.data)
-          ? otherItemResponse.data
-          : []
-      );
+      const otherItems = Array.isArray(otherItemResponse.data)
+        ? otherItemResponse.data
+        : [];
+
+      setOtherItemStock(otherItems.map(normalizeOtherItem));
     } catch (error) {
       console.error("LOAD STOCK ERROR:", error);
       alert(
@@ -141,53 +309,14 @@ function Stock() {
     }
   };
 
-  const loadMedicines = async () => {
-    try {
-      const response = await api.get("/Medicine");
-
-      setMedicines(
-        Array.isArray(response.data) ? response.data : []
-      );
-    } catch (error) {
-      console.error("LOAD MEDICINES ERROR:", error);
-    }
-  };
-
-  const loadSuppliers = async () => {
-    try {
-      const response = await api.get("/Supplier");
-
-      setSuppliers(
-        Array.isArray(response.data) ? response.data : []
-      );
-    } catch (error) {
-      console.error("LOAD SUPPLIERS ERROR:", error);
-    }
-  };
-
-  const loadCategories = async () => {
-    try {
-      const response = await api.get("/ProductCategory");
-
-      setCategories(
-        Array.isArray(response.data) ? response.data : []
-      );
-    } catch (error) {
-      console.error("LOAD PRODUCT CATEGORIES ERROR:", error);
-    }
-  };
-
-  // INPUT CHANGE
   const handleChange = (e) => {
     const { name, value } = e.target;
-
     setFormData((previous) => ({
       ...previous,
       [name]: value,
     }));
   };
 
-  // RESET FORM
   const resetForm = () => {
     setFormData({ ...emptyForm });
     setEditingBatchId(null);
@@ -197,21 +326,15 @@ function Stock() {
 
   const closeForm = () => {
     if (saving) return;
-
     setShowForm(false);
     resetForm();
   };
 
-  // OPEN ADD STOCK FORM
   const handleOpenAddStock = () => {
     resetForm();
     setItemType("Medicine");
     setShowForm(true);
-
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleItemTypeChange = (type) => {
@@ -221,14 +344,14 @@ function Stock() {
 
   // EDIT MEDICINE BATCH
   const handleEditMedicine = async (item) => {
-    if (item.medicineIsActive === false) {
-      alert(
-        "Inactive medicines cannot be edited from Stock Management."
-      );
-      return;
-    }
+    console.log("EDIT MEDICINE CLICKED:", item);
 
-    const id = Number(item.batchId ?? item.id);
+    const id = Number(
+      item?.batchId ??
+      item?.BatchId ??
+      item?.id ??
+      item?.Id
+    );
 
     if (!Number.isInteger(id) || id <= 0) {
       alert("Medicine batch ID not found.");
@@ -237,13 +360,16 @@ function Stock() {
 
     try {
       const response = await api.get("/MedicineBatch");
-
       const batches = Array.isArray(response.data)
         ? response.data
         : [];
 
       const batch = batches.find(
-        (b) => Number(b.batchId ?? b.id) === id
+        (b) =>
+          Number(
+            getField(b, "batchId", "BatchId") ??
+            getField(b, "id", "Id")
+          ) === id
       );
 
       if (!batch) {
@@ -252,18 +378,9 @@ function Stock() {
       }
 
       const batchMedicineId = Number(
-        batch.medicineId ?? item.medicineId
+        getField(batch, "medicineId", "MedicineId") ??
+        item.medicineId
       );
-
-      const activeMedicine = medicines.some(
-        (medicine) =>
-          Number(medicine.medicineId) === batchMedicineId
-      );
-
-      if (!activeMedicine) {
-        alert("This medicine is inactive and cannot be edited.");
-        return;
-      }
 
       setItemType("Medicine");
       setEditingBatchId(id);
@@ -272,63 +389,70 @@ function Stock() {
 
       setFormData({
         ...emptyForm,
-        medicineId: String(
-          batch.medicineId ?? item.medicineId ?? ""
-        ),
+        medicineId: String(batchMedicineId),
         supplierId: String(
-          batch.supplierId ?? item.supplierId ?? ""
+          getField(batch, "supplierId", "SupplierId") ??
+          item.supplierId ??
+          ""
         ),
-        batchName: batch.batchName ?? item.batchName ?? "",
+        batchName:
+          getField(batch, "batchName", "BatchName") ??
+          item.batchName ??
+          "",
         manufacturingDate: String(
-          batch.manufacturingDate ??
-            item.manufacturingDate ??
-            ""
+          getField(batch, "manufacturingDate", "ManufacturingDate") ??
+          item.manufacturingDate ??
+          ""
         ).substring(0, 10),
         expiryDate: String(
-          batch.expiryDate ?? item.expiryDate ?? ""
+          getField(batch, "expiryDate", "ExpiryDate") ??
+          item.expiryDate ??
+          ""
         ).substring(0, 10),
         purchasePrice:
-          batch.purchasePrice ?? item.purchasePrice ?? "",
+          getField(batch, "purchasePrice", "PurchasePrice") ??
+          item.purchasePrice ??
+          "",
         sellingPrice:
-          batch.sellingPrice ?? item.sellingPrice ?? "",
-        quantity: batch.quantity ?? item.quantity ?? "",
+          getField(batch, "sellingPrice", "SellingPrice") ??
+          item.sellingPrice ??
+          "",
+        quantity:
+          getField(batch, "quantity", "Quantity") ??
+          item.quantity ??
+          "",
       });
 
       setShowForm(true);
-
-      window.scrollTo({
-        top: 0,
-        behavior: "smooth",
-      });
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (error) {
       console.error("LOAD MEDICINE BATCH ERROR:", error);
-
       alert(
         error.response?.data?.message ||
-          "Could not load medicine batch details."
+        "Could not load medicine batch details."
       );
     }
   };
 
   // DELETE MEDICINE BATCH
   const handleDeleteMedicine = async (itemOrId) => {
+    console.log("DELETE MEDICINE CLICKED:", itemOrId);
+
     const item =
       typeof itemOrId === "object" && itemOrId !== null
         ? itemOrId
         : medicineStock.find(
             (row) =>
-              Number(row.batchId ?? row.id) ===
+              Number(row.batchId ?? row.BatchId ?? row.id) ===
               Number(itemOrId)
           );
 
-    if (item?.medicineIsActive === false) {
-      alert("Inactive medicine batch is preserved.");
-      return;
-    }
-
     const id = Number(
       typeof itemOrId === "object" && itemOrId !== null
-        ? itemOrId.batchId ?? itemOrId.id
+        ? itemOrId.batchId ??
+          itemOrId.BatchId ??
+          itemOrId.id ??
+          itemOrId.Id
         : itemOrId
     );
 
@@ -339,33 +463,28 @@ function Stock() {
 
     if (
       !window.confirm(
-        "Are you sure you want to delete this medicine batch?"
+        "Are you sure you want to deactivate this medicine batch?"
       )
     ) {
       return;
     }
 
     try {
-      await api.delete(`/MedicineBatch/${id}`);
-
-      alert("Medicine batch deleted successfully.");
-
-      await loadStock(medicines);
-    } catch (error) {
-      console.error("DELETE MEDICINE ERROR:", error);
+      const response = await api.delete(`/MedicineBatch/${id}`);
 
       alert(
+        response.data?.message ??
+        "Medicine batch deactivated successfully."
+      );
+
+      await loadAllData();
+    } catch (error) {
+      console.error("DELETE MEDICINE ERROR:", error);
+      alert(
         error.response?.data?.message ||
-          "Failed to delete medicine batch."
+        "Failed to deactivate medicine batch."
       );
     }
-  };
-
-  // OTHER ITEM ID
-  const getOtherItemId = (item) => {
-    const id = item?.otherItemId ?? item?.id;
-
-    return id != null ? Number(id) : null;
   };
 
   // EDIT OTHER ITEM
@@ -387,7 +506,7 @@ function Stock() {
       purchasePrice: item.purchasePrice ?? "",
       sellingPrice: item.sellingPrice ?? "",
       quantity: item.quantity ?? "",
-      itemName: item.name ?? item.itemName ?? "",
+      itemName: item.itemName ?? item.name ?? "",
       category: item.category ?? "",
       unit: item.unit ?? "",
       reorderLevel: item.reorderLevel ?? "",
@@ -395,14 +514,9 @@ function Stock() {
     });
 
     setShowForm(true);
-
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // ADD EXISTING OTHER ITEM STOCK
   const handleAddOtherItemStock = (item) => {
     const id = getOtherItemId(item);
 
@@ -421,7 +535,7 @@ function Stock() {
       purchasePrice: item.purchasePrice ?? "",
       sellingPrice: item.sellingPrice ?? "",
       quantity: "",
-      itemName: item.name ?? item.itemName ?? "",
+      itemName: item.itemName ?? item.name ?? "",
       category: item.category ?? "",
       unit: item.unit ?? "",
       reorderLevel: item.reorderLevel ?? "",
@@ -429,11 +543,7 @@ function Stock() {
     });
 
     setShowForm(true);
-
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   // DELETE OTHER ITEM
@@ -455,16 +565,13 @@ function Stock() {
 
     try {
       await api.delete(`/OtherItem/${id}`);
-
       alert("Other item deleted successfully.");
-
-      await loadStock(medicines);
+      await loadAllData();
     } catch (error) {
       console.error("DELETE OTHER ITEM ERROR:", error);
-
       alert(
         error.response?.data?.message ||
-          "Failed to delete other item."
+        "Failed to delete other item."
       );
     }
   };
@@ -472,7 +579,6 @@ function Stock() {
   // SAVE STOCK
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     if (saving) return;
 
     try {
@@ -485,13 +591,7 @@ function Stock() {
         const sellingPrice = Number(formData.sellingPrice);
         const quantity = Number(formData.quantity);
 
-        const selectedMedicineIsActive = medicines.some(
-          (medicine) =>
-            Number(medicine.medicineId) === medicineId
-        );
-
         if (
-          !selectedMedicineIsActive ||
           !Number.isInteger(medicineId) ||
           !Number.isInteger(supplierId) ||
           !formData.batchName.trim() ||
@@ -504,16 +604,13 @@ function Stock() {
           sellingPrice <= 0 ||
           quantity < 0
         ) {
-          alert(
-            "Please select an active medicine and enter valid medicine batch details."
-          );
+          alert("Please enter valid medicine batch details.");
           return;
         }
 
         const manufacturingDate = new Date(
           `${formData.manufacturingDate}T00:00:00`
         );
-
         const expiryDate = new Date(
           `${formData.expiryDate}T00:00:00`
         );
@@ -523,9 +620,7 @@ function Stock() {
           Number.isNaN(expiryDate.getTime()) ||
           expiryDate <= manufacturingDate
         ) {
-          alert(
-            "Expiry date must be after the manufacturing date."
-          );
+          alert("Expiry date must be after the manufacturing date.");
           return;
         }
 
@@ -541,40 +636,21 @@ function Stock() {
         };
 
         if (editingBatchId !== null) {
-          const existingItem = medicineStock.find(
-            (item) =>
-              Number(item.batchId ?? item.id) ===
-              Number(editingBatchId)
-          );
-
-          if (existingItem?.medicineIsActive === false) {
-            alert("Inactive medicine batches cannot be edited.");
-            return;
-          }
-
-          await api.put(
-            `/MedicineBatch/${editingBatchId}`,
-            {
-              batchId: editingBatchId,
-              ...data,
-            }
-          );
+          await api.put(`/MedicineBatch/${editingBatchId}`, {
+            batchId: editingBatchId,
+            ...data,
+          });
 
           alert("Medicine batch updated successfully.");
         } else {
           await api.post("/MedicineBatch", data);
-
           alert("Medicine stock added successfully.");
         }
       } else {
-        if (
-          otherItemMode === "addStock" &&
-          selectedOtherItemId
-        ) {
+        if (otherItemMode === "addStock" && selectedOtherItemId) {
           const currentItem = otherItemStock.find(
             (item) =>
-              getOtherItemId(item) ===
-              Number(selectedOtherItemId)
+              getOtherItemId(item) === Number(selectedOtherItemId)
           );
 
           if (!currentItem) {
@@ -588,45 +664,29 @@ function Stock() {
             !Number.isInteger(quantityToAdd) ||
             quantityToAdd <= 0
           ) {
-            alert(
-              "Please enter a valid quantity greater than zero."
-            );
+            alert("Please enter a valid quantity greater than zero.");
             return;
           }
 
           const newQuantity =
-            Number(currentItem.quantity ?? 0) +
-            quantityToAdd;
-
-          const productCategoryId =
-            currentItem.productCategoryId ?? null;
+            Number(currentItem.quantity ?? 0) + quantityToAdd;
 
           const data = {
-            otherItemId: Number(selectedOtherItemId),
-            itemName:
-              currentItem.name ?? currentItem.itemName ?? "",
-            category: currentItem.category ?? "",
-            unit: currentItem.unit ?? "",
-            purchasePrice: Number(
-              currentItem.purchasePrice ?? 0
-            ),
-            sellingPrice: Number(
-              currentItem.sellingPrice ?? 0
-            ),
-            quantity: newQuantity,
-            reorderLevel: Number(
-              currentItem.reorderLevel ?? 0
-            ),
-            productCategoryId: productCategoryId
-              ? Number(productCategoryId)
+            ItemName:
+              currentItem.itemName ?? currentItem.name ?? "",
+            Category: currentItem.category || null,
+            Unit: currentItem.unit || null,
+            PurchasePrice: Number(currentItem.purchasePrice ?? 0),
+            SellingPrice: Number(currentItem.sellingPrice ?? 0),
+            Quantity: newQuantity,
+            ReorderLevel: Number(currentItem.reorderLevel ?? 0),
+            ProductCategoryId: currentItem.productCategoryId
+              ? Number(currentItem.productCategoryId)
               : null,
-            status: true,
+            Status: currentItem.status ?? true,
           };
 
-          await api.put(
-            `/OtherItem/${selectedOtherItemId}`,
-            data
-          );
+          await api.put(`/OtherItem/${selectedOtherItemId}`, data);
 
           alert(
             `Stock added successfully!\nNew quantity: ${newQuantity}`
@@ -635,19 +695,14 @@ function Stock() {
           otherItemMode === "edit" &&
           selectedOtherItemId
         ) {
-          const purchasePrice = Number(
-            formData.purchasePrice
-          );
-
-          const sellingPrice = Number(
-            formData.sellingPrice
-          );
-
+          const itemName = formData.itemName.trim();
+          const purchasePrice = Number(formData.purchasePrice);
+          const sellingPrice = Number(formData.sellingPrice);
           const quantity = Number(formData.quantity);
           const reorderLevel = Number(formData.reorderLevel);
 
           if (
-            !formData.itemName.trim() ||
+            !itemName ||
             !Number.isFinite(purchasePrice) ||
             !Number.isFinite(sellingPrice) ||
             !Number.isInteger(quantity) ||
@@ -662,38 +717,27 @@ function Stock() {
           }
 
           const data = {
-            otherItemId: Number(selectedOtherItemId),
-            itemName: formData.itemName.trim(),
-            category: formData.category,
-            unit: formData.unit,
-            purchasePrice,
-            sellingPrice,
-            quantity,
-            reorderLevel,
-            productCategoryId: formData.productCategoryId
+            ItemName: itemName,
+            Category: formData.category || null,
+            Unit: formData.unit || null,
+            PurchasePrice: purchasePrice,
+            SellingPrice: sellingPrice,
+            Quantity: quantity,
+            ReorderLevel: reorderLevel,
+            ProductCategoryId: formData.productCategoryId
               ? Number(formData.productCategoryId)
               : null,
-            status: true,
+            Status: true,
           };
 
-          await api.put(
-            `/OtherItem/${selectedOtherItemId}`,
-            data
-          );
-
+          await api.put(`/OtherItem/${selectedOtherItemId}`, data);
           alert("Other item updated successfully.");
         } else {
           const itemName = formData.itemName.trim();
-          const purchasePrice = Number(
-            formData.purchasePrice
-          );
-          const sellingPrice = Number(
-            formData.sellingPrice
-          );
+          const purchasePrice = Number(formData.purchasePrice);
+          const sellingPrice = Number(formData.sellingPrice);
           const quantity = Number(formData.quantity);
-          const reorderLevel = Number(
-            formData.reorderLevel
-          );
+          const reorderLevel = Number(formData.reorderLevel);
 
           if (
             !itemName ||
@@ -712,28 +756,24 @@ function Stock() {
           }
 
           const data = {
-            itemName,
-            category: formData.category,
-            unit: formData.unit,
-            purchasePrice,
-            sellingPrice,
-            quantity,
-            reorderLevel,
-            productCategoryId: Number(
-              formData.productCategoryId
-            ),
-            status: true,
+            ItemName: itemName,
+            Category: formData.category || null,
+            Unit: formData.unit || null,
+            PurchasePrice: purchasePrice,
+            SellingPrice: sellingPrice,
+            Quantity: quantity,
+            ReorderLevel: reorderLevel,
+            ProductCategoryId: Number(formData.productCategoryId),
+            Status: true,
           };
 
           await api.post("/OtherItem", data);
-
           alert("Other item added successfully.");
         }
       }
 
       setShowForm(false);
       resetForm();
-
       await loadAllData();
     } catch (error) {
       console.error("SAVE STOCK ERROR:", error);
@@ -741,17 +781,16 @@ function Stock() {
 
       alert(
         error.response?.data?.message ||
-          error.response?.data?.title ||
-          (typeof error.response?.data === "string"
-            ? error.response.data
-            : "Failed to save stock.")
+        error.response?.data?.title ||
+        (typeof error.response?.data === "string"
+          ? error.response.data
+          : "Failed to save stock.")
       );
     } finally {
       setSaving(false);
     }
   };
 
-  // COMBINE STOCK
   const allStock = [
     ...medicineStock.map((item) => ({
       ...item,
@@ -766,29 +805,33 @@ function Stock() {
 
   const searchText = search.trim().toLowerCase();
 
-  const filteredMedicineStock = medicineStock.filter(
-    (item) => {
-      const name = String(item.name ?? "").toLowerCase();
+  const filteredMedicineStock = medicineStock.filter((item) => {
+    const name = String(item.name ?? "").toLowerCase();
+    const strength = String(item.strength ?? "").toLowerCase();
+    const batchName = String(item.batchName ?? "").toLowerCase();
+    const supplier = String(item.supplier ?? "").toLowerCase();
 
-      return (
-        name.includes(searchText) &&
-        (filter === "All" || filter === "Medicine")
-      );
-    }
-  );
+    return (
+      (name.includes(searchText) ||
+        strength.includes(searchText) ||
+        batchName.includes(searchText) ||
+        supplier.includes(searchText)) &&
+      (filter === "All" || filter === "Medicine")
+    );
+  });
 
-  const filteredOtherItemStock = otherItemStock.filter(
-    (item) => {
-      const name = String(
-        item.name ?? item.itemName ?? ""
-      ).toLowerCase();
+  const filteredOtherItemStock = otherItemStock.filter((item) => {
+    const name = String(
+      item.name ?? item.itemName ?? ""
+    ).toLowerCase();
+    const category = String(item.category ?? "").toLowerCase();
 
-      return (
-        name.includes(searchText) &&
-        (filter === "All" || filter === "Other Item")
-      );
-    }
-  );
+    return (
+      (name.includes(searchText) ||
+        category.includes(searchText)) &&
+      (filter === "All" || filter === "Other Item")
+    );
+  });
 
   const totalItems = allStock.length;
 
@@ -796,8 +839,7 @@ function Stock() {
     (item) =>
       item.itemType === "Other Item" &&
       Number(item.quantity) > 0 &&
-      Number(item.quantity) <=
-        Number(item.reorderLevel ?? 0)
+      Number(item.quantity) <= Number(item.reorderLevel ?? 0)
   ).length;
 
   const outOfStock = allStock.filter(
@@ -812,7 +854,6 @@ function Stock() {
     0
   );
 
-  // EXPIRY HELPERS
   const getDaysUntilExpiry = (expiryDate) => {
     if (!expiryDate) return null;
 
@@ -839,7 +880,6 @@ function Stock() {
     }
 
     const days = getDaysUntilExpiry(item.expiryDate);
-
     return days !== null && days >= 0 && days <= 30;
   }).length;
 
@@ -852,7 +892,6 @@ function Stock() {
     }
 
     const days = getDaysUntilExpiry(item.expiryDate);
-
     return days !== null && days < 0;
   }).length;
 
@@ -878,10 +917,7 @@ function Stock() {
       );
     }
 
-    if (
-      item.itemType === "Medicine" &&
-      item.expiryDate
-    ) {
+    if (item.itemType === "Medicine" && item.expiryDate) {
       const days = getDaysUntilExpiry(item.expiryDate);
 
       if (days !== null && days < 0) {
@@ -919,11 +955,22 @@ function Stock() {
     );
   };
 
+  const activeMedicines = medicines.filter(
+    (medicine) => medicine.isActive === true
+  );
+
+  const activeSuppliers = suppliers.filter(
+    (supplier) => supplier.isActive !== false
+  );
+
+  const activeCategories = categories.filter(
+    (category) => category.status !== false
+  );
+
   const getFormTitle = () => {
     if (editingBatchId !== null) return "Edit Medicine Batch";
     if (otherItemMode === "edit") return "Edit Other Item";
     if (otherItemMode === "addStock") return "Add Other Item Stock";
-
     return "Add New Stock";
   };
 
@@ -931,15 +978,12 @@ function Stock() {
     if (editingBatchId !== null) {
       return "Update medicine batch stock details";
     }
-
     if (otherItemMode === "edit") {
       return "Update other item information";
     }
-
     if (otherItemMode === "addStock") {
       return "Add quantity to existing other item stock";
     }
-
     return "Add medicine or other item to your inventory";
   };
 
@@ -947,8 +991,9 @@ function Stock() {
     <div className="stock-page">
       <div className="stock-header">
         <div className="stock-title-row">
-          <div className="stock-title-icon">📦</div>
-
+          <div className="stock-title-icon">
+            <Package size={20} />
+          </div>
           <div>
             <h1>Stock Management</h1>
             <p>Manage your pharmacy inventory</p>
@@ -975,7 +1020,7 @@ function Stock() {
               fontWeight: "600",
             }}
           >
-            ↪ Logout
+            <LogOut size={16} /> Logout
           </button>
 
           <button
@@ -983,13 +1028,14 @@ function Stock() {
             className="stock-add-btn"
             onClick={handleOpenAddStock}
           >
-            <span>+</span>
+            <span>
+              <Plus size={16} />
+            </span>
             Add Stock
           </button>
         </div>
       </div>
 
-      {/* ADD / EDIT STOCK FORM */}
       {showForm && (
         <div className="medicine-form-card">
           <div className="medicine-form-header">
@@ -1005,7 +1051,7 @@ function Stock() {
               title="Close"
               disabled={saving}
             >
-              ✕
+              <X size={16} />
             </button>
           </div>
 
@@ -1015,22 +1061,18 @@ function Stock() {
 
               <div className="stock-type-options">
                 <label
-                  className={
-                    itemType === "Medicine" ? "selected" : ""
-                  }
+                  className={itemType === "Medicine" ? "selected" : ""}
                 >
                   <input
                     type="radio"
                     name="itemType"
                     value="Medicine"
                     checked={itemType === "Medicine"}
-                    onChange={() =>
-                      handleItemTypeChange("Medicine")
-                    }
+                    onChange={() => handleItemTypeChange("Medicine")}
                   />
-
-                  <span className="stock-type-icon">💊</span>
-
+                  <span className="stock-type-icon">
+                    <Pill size={18} />
+                  </span>
                   <span className="stock-type-text">
                     <strong>Medicine</strong>
                     <small>Add medicine batch stock</small>
@@ -1038,24 +1080,18 @@ function Stock() {
                 </label>
 
                 <label
-                  className={
-                    itemType === "Other Item" ? "selected" : ""
-                  }
+                  className={itemType === "Other Item" ? "selected" : ""}
                 >
                   <input
                     type="radio"
                     name="itemType"
                     value="Other Item"
                     checked={itemType === "Other Item"}
-                    onChange={() =>
-                      handleItemTypeChange("Other Item")
-                    }
+                    onChange={() => handleItemTypeChange("Other Item")}
                   />
-
                   <span className="stock-type-icon other-icon">
-                    📦
+                    <Package size={20} />
                   </span>
-
                   <span className="stock-type-text">
                     <strong>Other Item</strong>
                     <small>Add non-medicine stock</small>
@@ -1070,7 +1106,6 @@ function Stock() {
               <div className="medicine-form-grid">
                 <div className="form-group">
                   <label>Medicine</label>
-
                   <select
                     name="medicineId"
                     value={formData.medicineId}
@@ -1078,8 +1113,7 @@ function Stock() {
                     required
                   >
                     <option value="">Select Medicine</option>
-
-                    {medicines.map((medicine) => (
+                    {activeMedicines.map((medicine) => (
                       <option
                         key={medicine.medicineId}
                         value={medicine.medicineId}
@@ -1089,16 +1123,16 @@ function Stock() {
                     ))}
                   </select>
 
-                  {medicines.length === 0 && (
+                  {activeMedicines.length === 0 && (
                     <small>
-                      No active medicines available. Add a medicine first.
+                      No active medicines available. Add or activate a
+                      medicine first.
                     </small>
                   )}
                 </div>
 
                 <div className="form-group">
                   <label>Supplier</label>
-
                   <select
                     name="supplierId"
                     value={formData.supplierId}
@@ -1106,8 +1140,7 @@ function Stock() {
                     required
                   >
                     <option value="">Select Supplier</option>
-
-                    {suppliers.map((supplier) => (
+                    {activeSuppliers.map((supplier) => (
                       <option
                         key={supplier.supplierId}
                         value={supplier.supplierId}
@@ -1120,7 +1153,6 @@ function Stock() {
 
                 <div className="form-group">
                   <label>Batch Name</label>
-
                   <input
                     type="text"
                     name="batchName"
@@ -1133,7 +1165,6 @@ function Stock() {
 
                 <div className="form-group">
                   <label>Manufacturing Date</label>
-
                   <input
                     type="date"
                     name="manufacturingDate"
@@ -1146,7 +1177,6 @@ function Stock() {
 
                 <div className="form-group">
                   <label>Expiry Date</label>
-
                   <input
                     type="date"
                     name="expiryDate"
@@ -1159,7 +1189,6 @@ function Stock() {
 
                 <div className="form-group">
                   <label>Purchase Price</label>
-
                   <input
                     type="number"
                     name="purchasePrice"
@@ -1173,7 +1202,6 @@ function Stock() {
 
                 <div className="form-group">
                   <label>Selling Price</label>
-
                   <input
                     type="number"
                     name="sellingPrice"
@@ -1187,7 +1215,6 @@ function Stock() {
 
                 <div className="form-group">
                   <label>Quantity</label>
-
                   <input
                     type="number"
                     name="quantity"
@@ -1205,7 +1232,6 @@ function Stock() {
               <div className="medicine-form-grid">
                 <div className="form-group">
                   <label>Item Name</label>
-
                   <input
                     type="text"
                     name="itemName"
@@ -1219,7 +1245,6 @@ function Stock() {
 
                 <div className="form-group">
                   <label>Product Category</label>
-
                   <select
                     name="productCategoryId"
                     value={formData.productCategoryId}
@@ -1228,25 +1253,19 @@ function Stock() {
                     disabled={otherItemMode === "addStock"}
                   >
                     <option value="">Select Category</option>
-
-                    {categories
-                      .filter(
-                        (category) => category.status !== false
-                      )
-                      .map((category) => (
-                        <option
-                          key={category.categoryId}
-                          value={category.categoryId}
-                        >
-                          {category.categoryName}
-                        </option>
-                      ))}
+                    {activeCategories.map((category) => (
+                      <option
+                        key={category.categoryId}
+                        value={category.categoryId}
+                      >
+                        {category.categoryName}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
                 <div className="form-group">
                   <label>Category</label>
-
                   <input
                     type="text"
                     name="category"
@@ -1259,7 +1278,6 @@ function Stock() {
 
                 <div className="form-group">
                   <label>Unit</label>
-
                   <input
                     type="text"
                     name="unit"
@@ -1272,7 +1290,6 @@ function Stock() {
 
                 <div className="form-group">
                   <label>Purchase Price</label>
-
                   <input
                     type="number"
                     name="purchasePrice"
@@ -1287,7 +1304,6 @@ function Stock() {
 
                 <div className="form-group">
                   <label>Selling Price</label>
-
                   <input
                     type="number"
                     name="sellingPrice"
@@ -1306,7 +1322,6 @@ function Stock() {
                       ? "Quantity to Add"
                       : "Quantity"}
                   </label>
-
                   <input
                     type="number"
                     name="quantity"
@@ -1336,7 +1351,6 @@ function Stock() {
 
                 <div className="form-group">
                   <label>Reorder Level</label>
-
                   <input
                     type="number"
                     name="reorderLevel"
@@ -1364,11 +1378,7 @@ function Stock() {
               <button
                 type="submit"
                 className="save-medicine-btn"
-                disabled={
-                  saving ||
-                  (itemType === "Medicine" &&
-                    medicines.length === 0)
-                }
+                disabled={saving}
               >
                 {saving
                   ? "Saving..."
@@ -1388,7 +1398,9 @@ function Stock() {
       {/* STOCK SUMMARY */}
       <div className="stock-summary-grid">
         <div className="stock-summary-card">
-          <div className="stock-summary-icon total">📦</div>
+          <div className="stock-summary-icon total">
+            <Package size={20} />
+          </div>
           <div>
             <span>Total Items</span>
             <strong>{totalItems}</strong>
@@ -1396,7 +1408,9 @@ function Stock() {
         </div>
 
         <div className="stock-summary-card">
-          <div className="stock-summary-icon low">⚠️</div>
+          <div className="stock-summary-icon low">
+            <AlertTriangle size={20} />
+          </div>
           <div>
             <span>Low Stock</span>
             <strong>{lowStock}</strong>
@@ -1404,7 +1418,9 @@ function Stock() {
         </div>
 
         <div className="stock-summary-card">
-          <div className="stock-summary-icon out">🚫</div>
+          <div className="stock-summary-icon out">
+            <Ban size={20} />
+          </div>
           <div>
             <span>Out of Stock</span>
             <strong>{outOfStock}</strong>
@@ -1412,7 +1428,9 @@ function Stock() {
         </div>
 
         <div className="stock-summary-card">
-          <div className="stock-summary-icon value">💰</div>
+          <div className="stock-summary-icon value">
+            <DollarSign size={20} />
+          </div>
           <div>
             <span>Stock Value</span>
             <strong>
@@ -1427,7 +1445,9 @@ function Stock() {
 
       <div className="stock-summary-grid">
         <div className="stock-summary-card">
-          <div className="stock-summary-icon low">⏳</div>
+          <div className="stock-summary-icon low">
+            <Clock size={20} />
+          </div>
           <div>
             <span>Expiring Soon</span>
             <strong>{expiringSoon}</strong>
@@ -1435,7 +1455,9 @@ function Stock() {
         </div>
 
         <div className="stock-summary-card">
-          <div className="stock-summary-icon out">⚠️</div>
+          <div className="stock-summary-icon out">
+            <AlertTriangle size={20} />
+          </div>
           <div>
             <span>Expired Stock</span>
             <strong>{expiredStock}</strong>
@@ -1446,8 +1468,9 @@ function Stock() {
       {/* SEARCH AND FILTER */}
       <div className="stock-toolbar">
         <div className="stock-search">
-          <span>🔍</span>
-
+          <span>
+            <Search size={18} />
+          </span>
           <input
             type="text"
             placeholder="Search medicine or other item..."
@@ -1458,7 +1481,6 @@ function Stock() {
 
         <div className="stock-filter-box">
           <span>Show:</span>
-
           <select
             className="stock-filter"
             value={filter}
@@ -1477,9 +1499,8 @@ function Stock() {
           <div className="stock-section-header">
             <div className="stock-section-title">
               <span className="stock-section-icon medicine-section-icon">
-                💊
+                <Pill size={18} />
               </span>
-
               <div>
                 <h3>Medicine Stock</h3>
                 <p>
@@ -1492,7 +1513,7 @@ function Stock() {
 
           {filteredMedicineStock.length === 0 ? (
             <div className="stock-empty-small">
-              <span>💊</span>
+              <span><Pill size={18} /></span>
               <p>No medicine stock found.</p>
             </div>
           ) : (
@@ -1513,116 +1534,85 @@ function Stock() {
                     <th>ACTION</th>
                   </tr>
                 </thead>
-
                 <tbody>
                   {filteredMedicineStock.map((item) => {
-                    const batchId = item.batchId ?? item.id;
+                    const batchId =
+                      item.batchId ?? item.BatchId ?? item.id;
 
                     return (
                       <tr key={`medicine-${batchId}`}>
                         <td>
                           <div className="medicine-name-cell stock-name-cell">
                             <div className="medicine-icon medicine-stock-icon">
-                              💊
+                              <Pill size={18} />
                             </div>
-
-                            <strong>{item.name}</strong>
+                            <strong>{item.name || "-"}</strong>
                           </div>
                         </td>
-
                         <td>
                           <span className="stock-detail-text">
                             {item.strength || "-"}
                           </span>
                         </td>
-
                         <td>
                           <span className="batch-badge">
-                            {item.batchName}
+                            {item.batchName || "-"}
                           </span>
                         </td>
-
                         <td>{item.supplier || "-"}</td>
-
                         <td>
                           {item.manufacturingDate
-                            ? new Date(
-                                item.manufacturingDate
-                              ).toLocaleDateString("en-GB")
+                            ? new Date(item.manufacturingDate).toLocaleDateString("en-GB")
                             : "-"}
                         </td>
-
                         <td>
                           {item.expiryDate
-                            ? new Date(
-                                item.expiryDate
-                              ).toLocaleDateString("en-GB")
+                            ? new Date(item.expiryDate).toLocaleDateString("en-GB")
                             : "-"}
                         </td>
-
                         <td className="stock-price">
                           Rs.{" "}
-                          {Number(
-                            item.purchasePrice ?? 0
-                          ).toLocaleString("en-LK", {
-                            minimumFractionDigits: 2,
-                          })}
+                          {Number(item.purchasePrice ?? 0).toLocaleString(
+                            "en-LK",
+                            { minimumFractionDigits: 2 }
+                          )}
                         </td>
-
                         <td className="stock-price">
                           Rs.{" "}
-                          {Number(
-                            item.sellingPrice ?? 0
-                          ).toLocaleString("en-LK", {
-                            minimumFractionDigits: 2,
-                          })}
+                          {Number(item.sellingPrice ?? 0).toLocaleString(
+                            "en-LK",
+                            { minimumFractionDigits: 2 }
+                          )}
                         </td>
-
                         <td>
                           <strong className="stock-quantity">
-                            {item.quantity}
+                            {item.quantity ?? 0}
                           </strong>
-
                           <span className="stock-unit">
                             {" "}{item.unit || ""}
                           </span>
                         </td>
-
                         <td>
-                          {getStatus({
-                            ...item,
-                            itemType: "Medicine",
-                          })}
+                          {getStatus({ ...item, itemType: "Medicine" })}
                         </td>
-
                         <td>
                           <div className="stock-action-buttons">
                             <button
                               type="button"
                               className="stock-action-btn stock-edit-btn"
-                              onClick={() =>
-                                handleEditMedicine(item)
-                              }
+                              onClick={() => handleEditMedicine(item)}
                               title="Edit"
-                              disabled={
-                                item.medicineIsActive === false
-                              }
                             >
-                              ✏️
+                              <Pencil size={16} />
                             </button>
 
                             <button
                               type="button"
                               className="stock-action-btn stock-delete-btn"
-                              onClick={() =>
-                                handleDeleteMedicine(item)
-                              }
+                              onClick={() => handleDeleteMedicine(item)}
                               title="Delete"
-                              disabled={
-                                item.medicineIsActive === false
-                              }
                             >
-                              🗑️
+                              <Trash2 size={16} />
                             </button>
                           </div>
                         </td>
@@ -1642,9 +1632,8 @@ function Stock() {
           <div className="stock-section-header">
             <div className="stock-section-title">
               <span className="stock-section-icon other-section-icon">
-                📦
+                <Package size={20} />
               </span>
-
               <div>
                 <h3>Other Item Stock</h3>
                 <p>
@@ -1657,7 +1646,7 @@ function Stock() {
 
           {filteredOtherItemStock.length === 0 ? (
             <div className="stock-empty-small">
-              <span>📦</span>
+              <span><Package size={20} /></span>
               <p>No other item stock found.</p>
             </div>
           ) : (
@@ -1677,7 +1666,6 @@ function Stock() {
                     <th>ACTION</th>
                   </tr>
                 </thead>
-
                 <tbody>
                   {filteredOtherItemStock.map((item) => {
                     const itemId = getOtherItemId(item);
@@ -1687,100 +1675,77 @@ function Stock() {
                         <td>
                           <div className="medicine-name-cell stock-name-cell">
                             <div className="medicine-icon other-stock-icon">
-                              📦
+                              <Package size={20} />
                             </div>
-
                             <strong>
                               {item.name ?? item.itemName ?? "-"}
                             </strong>
                           </div>
                         </td>
-
                         <td>
                           <span className="product-category-badge">
-                            {item.productCategoryName ??
-                              item.category ??
-                              "-"}
+                            {item.productCategoryName || item.category || "-"}
                           </span>
                         </td>
-
-                        <td>{item.category ?? "-"}</td>
-                        <td>{item.unit ?? "-"}</td>
-
+                        <td>{item.category || "-"}</td>
+                        <td>{item.unit || "-"}</td>
                         <td className="stock-price">
                           Rs.{" "}
-                          {Number(
-                            item.purchasePrice ?? 0
-                          ).toLocaleString("en-LK", {
-                            minimumFractionDigits: 2,
-                          })}
+                          {Number(item.purchasePrice ?? 0).toLocaleString(
+                            "en-LK",
+                            { minimumFractionDigits: 2 }
+                          )}
                         </td>
-
                         <td className="stock-price">
                           Rs.{" "}
-                          {Number(
-                            item.sellingPrice ?? 0
-                          ).toLocaleString("en-LK", {
-                            minimumFractionDigits: 2,
-                          })}
+                          {Number(item.sellingPrice ?? 0).toLocaleString(
+                            "en-LK",
+                            { minimumFractionDigits: 2 }
+                          )}
                         </td>
-
                         <td>
                           <strong className="stock-quantity">
-                            {item.quantity}
+                            {item.quantity ?? 0}
                           </strong>
-
                           <span className="stock-unit">
                             {" "}{item.unit ?? ""}
                           </span>
                         </td>
-
                         <td>
                           <span className="reorder-level">
                             {item.reorderLevel ?? 0}
                           </span>
                         </td>
-
                         <td>
-                          {getStatus({
-                            ...item,
-                            itemType: "Other Item",
-                          })}
+                          {getStatus({ ...item, itemType: "Other Item" })}
                         </td>
-
                         <td>
                           <div className="stock-action-buttons">
                             <button
                               type="button"
                               className="stock-action-btn stock-add-item-btn"
-                              onClick={() =>
-                                handleAddOtherItemStock(item)
-                              }
+                              onClick={() => handleAddOtherItemStock(item)}
                               title="Add Stock"
                             >
-                              ➕
+                              <Plus size={16} />
                             </button>
 
                             <button
                               type="button"
                               className="stock-action-btn stock-edit-btn"
-                              onClick={() =>
-                                handleEditOtherItem(item)
-                              }
+                              onClick={() => handleEditOtherItem(item)}
                               title="Edit"
                             >
-                              ✏️
+                              <Pencil size={16} />
                             </button>
 
                             <button
                               type="button"
                               className="stock-action-btn stock-delete-btn"
-                              onClick={() =>
-                                handleDeleteOtherItem(itemId)
-                              }
+                              onClick={() => handleDeleteOtherItem(itemId)}
                               title="Delete"
                             >
-                              🗑️
+                              <Trash2 size={16} />
                             </button>
                           </div>
                         </td>
